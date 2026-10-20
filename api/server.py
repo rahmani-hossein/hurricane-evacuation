@@ -42,6 +42,7 @@ class QueryRequest(BaseModel):
     query: str
     county: Optional[str] = "Lee County"
 
+@app.get("/health")
 @app.get("/api/health")
 def health():
     return {
