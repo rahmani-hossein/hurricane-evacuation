@@ -162,6 +162,7 @@ export const App: React.FC = () => {
         onSelectCounty={handleSelectCounty}
         dataSourceLabel={dataSourceLabel}
         isLive={isLive}
+        onGenerateBrief={() => handleRunQuery('Generate the August Readiness Brief for Lee County')}
       />
 
       {/* 2. Critical Data Integrity Notice ("Unrecorded != No") */}

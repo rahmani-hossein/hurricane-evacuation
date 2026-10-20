@@ -11,6 +11,7 @@ export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery, selectedCoun
   const [input, setInput] = useState('');
 
   const quickPrompts = [
+    "📋 August Readiness Brief",
     "What are the top 3 stranded tracts in Lee County?",
     "Candidate shelters within 2 km of Tract 12071020801",
     "How many residents rely on medical electricity (emPOWER)?",
@@ -35,8 +36,12 @@ export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery, selectedCoun
         {quickPrompts.map((q, idx) => (
           <button
             key={idx}
-            onClick={() => onRunQuery(q)}
-            className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-full px-3 py-1 whitespace-nowrap text-xs transition-colors shrink-0"
+            onClick={() => onRunQuery(q.includes('Readiness Brief') ? "Generate the August Readiness Brief for Lee County" : q)}
+            className={`border rounded-full px-3 py-1 whitespace-nowrap text-xs transition-colors shrink-0 ${
+              q.includes('Readiness Brief')
+                ? 'bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 hover:text-white border-blue-500/60 font-semibold'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+            }`}
           >
             {q}
           </button>

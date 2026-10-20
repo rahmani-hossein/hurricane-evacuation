@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CountyReadinessData, ShelterCandidate, VulnerableTract } from '../mock/readinessData';
 import { MapsAttribution } from './MapsAttribution';
-import { AlertTriangle, FileText, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, FileText, ShieldCheck, Info } from 'lucide-react';
 
 interface ReadinessBriefProps {
   data: CountyReadinessData;
@@ -196,6 +196,63 @@ export const ReadinessBrief: React.FC<ReadinessBriefProps> = ({
                     <p className="text-slate-400 text-[11px]">{d.recommendation}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* SEGMENT 4: WHAT WE COULD NOT TELL YOU (HONEST LIMITATIONS) */}
+            <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-4">
+              <div className="flex items-center justify-between border-b border-slate-700/60 pb-2 mb-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs font-mono">4</span>
+                  What We Could Not Tell You (Honest Limitations)
+                </h3>
+                <span className="text-xs text-purple-400 font-mono font-bold">4 Data Boundaries</span>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed mb-3">
+                In this challenge, naming data limits is a finding, not a disclaimer. Federal paperwork reflects reporting bureaucracy rather than ground physical reality:
+              </p>
+
+              <div className="space-y-2.5">
+                <div className="bg-slate-900/80 border border-slate-700/60 p-3 rounded-lg text-xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-slate-100">Unrecorded ≠ Inaccessible (93.3% Clerical Gap)</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">CLERICAL DEFICIT</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    In Lee County, 93.3% of candidate shelters have blank wheelchair accessibility in FEMA NSS. The agent designates these as <em>State B (Verify-First)</em> rather than inaccessible to avoid falsely stranding mobility-impaired evacuees.
+                  </p>
+                </div>
+
+                <div className="bg-slate-900/80 border border-slate-700/60 p-3 rounded-lg text-xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-slate-100">Straight-Line Distance vs. Actual Drive Time</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">TOPOLOGY GAP</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Distances are straight-line Euclidean vectors. In Lee County, causeways (Sanibel, Cape Coral) and storm surge chokepoints create bottlenecks that cannot be traversed on foot or during late-stage contraflow without paratransit.
+                  </p>
+                </div>
+
+                <div className="bg-slate-900/80 border border-slate-700/60 p-3 rounded-lg text-xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-slate-100">emPOWER Medical Electricity Granularity</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">HIPAA AGGREGATION</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    HHS emPOWER identifies 8,339 electricity-dependent beneficiaries in Lee County at the county level. Due to federal privacy safeguards, patient addresses are aggregated, requiring municipal utility coordination for generator dispatch.
+                  </p>
+                </div>
+
+                <div className="bg-slate-900/80 border border-slate-700/60 p-3 rounded-lg text-xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-slate-100">FEMA NSS Listed Capacity ≠ Guaranteed Open Beds</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-300">OPERATIONAL REALITY</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Historical capacity numbers (or 0-capacity records like Littleton Elementary) reflect administrative allocations, not real-time Red Cross staffing or active cot deployments. Physical pre-landfall activation remains essential.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

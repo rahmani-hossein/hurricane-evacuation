@@ -1,14 +1,15 @@
 import React from 'react';
-import { ShieldAlert, Compass, MapPin, Database } from 'lucide-react';
+import { ShieldAlert, Compass, MapPin, Database, FileText } from 'lucide-react';
 
 interface NavbarProps {
   selectedCounty: string;
   onSelectCounty: (county: string) => void;
   dataSourceLabel?: string;
   isLive?: boolean;
+  onGenerateBrief?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ selectedCounty, onSelectCounty, dataSourceLabel, isLive }) => {
+export const Navbar: React.FC<NavbarProps> = ({ selectedCounty, onSelectCounty, dataSourceLabel, isLive, onGenerateBrief }) => {
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-white px-6 py-3 flex flex-wrap items-center justify-between gap-4 select-none shrink-0">
       <div className="flex items-center space-x-3">
@@ -37,6 +38,18 @@ export const Navbar: React.FC<NavbarProps> = ({ selectedCounty, onSelectCounty, 
       </div>
 
       <div className="flex items-center gap-4">
+        {/* 1-Click August Readiness Brief Action */}
+        {onGenerateBrief && (
+          <button
+            onClick={onGenerateBrief}
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-all border border-blue-400/40 cursor-pointer"
+            title="Generate official 4-segment August Readiness Brief"
+          >
+            <FileText className="w-3.5 h-3.5 text-blue-200" />
+            <span>Generate Brief</span>
+          </button>
+        )}
+
         {/* Target County Scope: Lee County Only */}
         <div className="flex items-center space-x-2 bg-slate-800/90 border border-emerald-500/40 rounded-lg px-3 py-1.5 shadow-sm">
           <MapPin className="w-4 h-4 text-emerald-400" />
