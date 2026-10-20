@@ -61,7 +61,11 @@ export const Navbar: React.FC<NavbarProps> = ({ selectedCounty, onSelectCounty, 
           </span>
           <span className="inline-flex items-center gap-1">
             <Compass className="w-3.5 h-3.5 text-emerald-400" />
-            Vertex AI <span translate="no" className="font-semibold text-slate-200">Google Maps Grounding</span>
+            <span translate="no" className="font-semibold text-slate-200">Google Maps Grounding</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+            Agent API: <code className="text-purple-300 font-mono text-[11px]">evacuation-agent-api</code>
           </span>
         </div>
       </div>
