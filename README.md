@@ -925,6 +925,23 @@ This is a rule for the whole event, and the reasoning matters more than the rule
 The remedy is auditing what your agent recommends, not deleting an input. This is consistent with
 Google's own published responsible-AI guidance.
 
+### Lee County equity analysis and recommended path
+
+The canonical Lee County build now has a documented post-hoc equity audit:
+[`docs/decisions/lee-county-equity-audit.md`](docs/decisions/lee-county-equity-audit.md), with a
+human-review companion at
+[`docs/decisions/lee-county-equity-audit.html`](docs/decisions/lee-county-equity-audit.html).
+The audit found that the top score decile is demographically different from the rest of Lee County,
+including a higher non-Hispanic White share and lower Black and Hispanic shares. This is an output
+association to investigate, not proof of intent or a reason to use race as a model input.
+
+The recommended path is **not part of the initial deployment**. Keep the current physical-need score
+and State A/B/C/D workflow stable, then add a parallel coverage queue for poverty, language isolation,
+no internet, and no-vehicle barriers. Before changing production weights, run sensitivity tests,
+compare selected tracts with county baselines, and verify State B shelters building by building.
+Use State D results to plan transportation and pickup capacity. Re-run the audit after each data
+refresh and preserve the data vintage, denominator, missingness, and score weights.
+
 ---
 
 ## Going further
