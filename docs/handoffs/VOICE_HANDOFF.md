@@ -4,6 +4,10 @@
 
 The coordinator UI now supports a browser voice session at `WS /api/voice`. The browser never receives Google credentials. The API opens Gemini Live, then delegates operational questions through `ask_readiness_agent` to the canonical Lee County Agent Engine.
 
+## Latency optimizations
+
+Operational voice turns are slower than greetings because they cross the Gemini Live → ADK Agent Engine → BigQuery/grounding path. The gateway now reuses its Agent Engine handle, caches identical readiness questions for 90 seconds within a warm container, asks the downstream agent for a concise voice-sized answer, and emits an immediate progress transcript while the tool runs. Greetings remain inside Gemini Live and do not invoke the downstream agent.
+
 ## Recommendation
 
 Use push-to-talk as the default interaction. The browser sends mono PCM audio at 16 kHz; Gemini Live returns native PCM audio, normally at 24 kHz, plus partial input/output transcriptions. The UI renders the transcript and tool state while audio plays.
