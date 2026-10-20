@@ -6,7 +6,7 @@ This presentation frames Adaptive Evacuation Operations as a community capabilit
 
 ## Story and recommendation
 
-Recommendation: present the product through three connected ideas: prevention, planning, and partnering. The county emergency-management office uses tract-level evidence to decide where to verify shelters, reserve transportation, and close medical-capacity gaps. Community organizations and residents make the plan real through voluntary peer pods, building captains, faith/community centers, Facebook groups, transit partners, and phone-tree backups.
+Recommendation: present the product as a loop between planning and community action. The county planner identifies priority areas, then works with the agent to find trusted nonprofits, libraries, volunteer centers, community centers, faith groups, and neighborhood networks nearby. Those partners help recruit peer volunteers and spread awareness of Neighbor Lift. Their capacity and gaps feed back into the next Readiness Brief.
 
 The central message is that a readiness plan should be judged by whether it works for people who cannot simply get in a car and leave. Public data can identify pressure at census-tract level without naming individuals. The system should never infer individual medical status or treat an unrecorded field as a negative.
 
@@ -31,11 +31,11 @@ The challenge scores impact and insight (30), technical execution including genu
 
 Use a 6-slide HTML presentation:
 
-1. Title and human stakes
-2. The challenge we are answering, using the team photo of the Challenge 04 brief
+1. Title and human stakes, with the team photo of the Challenge 04 brief
+2. The planning and community loop
 3. The human problem and local evidence
-4. What the agent does and how Maps grounding fits
-5. The demo handoff: screenshot placeholders, Readiness Brief, and limitations
+4. What the agent does for the planner
+5. The demo handoff: risk area, local partners, and peer brief placeholders
 6. Partnering, call to action, and local entry points
 
 The tone should be warm, direct, and civic rather than dashboard-like. Use the existing repo visual language: deep plum, coral/pink, warm amber, pale lavender, and legible high-contrast typography. Keep copy sparse. Use simple visual markers for transport, accessibility, power, people, and community. Reserve full text for the speaker rather than the slide.
