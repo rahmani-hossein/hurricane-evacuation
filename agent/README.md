@@ -1,6 +1,14 @@
-# Your agent goes here
+# Miami-Dade Hurricane Readiness Agent
 
-This folder is empty on purpose.
+This folder contains the executable ADK package. Project documentation lives under [`../docs/`](../docs/),
+so handoffs and decision artifacts do not accumulate in the repository root.
+
+- Runtime handoff: [`../docs/handoffs/ADK_HANDOFF.md`](../docs/handoffs/ADK_HANDOFF.md)
+- Data contract: [`../docs/handoffs/miami-dade-agent-handoff.md`](../docs/handoffs/miami-dade-agent-handoff.md)
+- Validation results: [`../docs/validation/miami-dade-shelter-validation.md`](../docs/validation/miami-dade-shelter-validation.md)
+
+The agent is a working Miami-Dade implementation, not a placeholder. It combines a custom BigQuery
+function tool with Google Maps grounding and preserves the uncertainty semantics of the gold tables.
 
 We built the on-ramp: every registered shelter in your state with capacity and accessibility, the
 census tracts around them with disability, vehicle access and age, the counties where people depend

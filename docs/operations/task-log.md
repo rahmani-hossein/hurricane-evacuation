@@ -16,6 +16,13 @@ This file is append-only. Add new entries at the bottom; do not rewrite prior en
 - Narrowed the operating scope to Miami-Dade County.
 - Added `miami_dade_tract_mobility_proxy`, `miami_dade_tract_shelter_options`, and `miami_dade_county_risk_snapshot` to the gold layer.
 - Documented the agent-facing gold schema and Maps grounding handoff in `miami-dade-agent-handoff.md` and `.html`.
+
+## 2026-10-20 — Repository organization
+
+- Removed the temporary pitch artifacts from the repository.
+- Moved handoffs to `docs/handoffs/`, validation results to `docs/validation/`, product decisions to
+  `docs/decisions/`, and the append-only log to `docs/operations/`.
+- Updated the agent README and added `docs/README.md` as the documentation index.
 - Confirmed raw Miami-Dade shelter counts: 138 distinct shelter records; 113 EVAC/BOTH records; 109 EVAC/BOTH records with positive evacuation capacity and therefore in the current gold candidate set.
 - Smoke-tested an ADK agent with `google_maps_grounding` against Gemini 3.6 Flash and Gemini 2.5 Flash. Both failed before tool execution with Vertex AI `aiplatform.endpoints.predict` permission denied; no Maps batch was run.
 - Retried after the Cloud Shell IAM grant. The student account now visibly has `roles/aiplatform.user`, but the local ADK process still receives the same 403, indicating its Application Default Credentials are not the Cloud Shell/student identity or the lab model endpoint is separately restricted.
