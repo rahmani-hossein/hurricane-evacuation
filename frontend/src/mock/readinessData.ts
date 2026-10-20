@@ -243,12 +243,12 @@ export const MOCK_LEE_COUNTY_DATA: CountyReadinessData = {
   state: "FL",
   seasonMonth: "August 2026",
   summary: {
-    totalCarlessHouseholds: 3840,
-    powerDependentResidents: 1420,
-    totalShelterCapacity: 28400,
-    unrecordedAccessibilityPct: 87.5,
-    surgeExposedSheltersCount: 3,
-    medicalSheltersCount: 2
+    totalCarlessHouseholds: 14553,
+    powerDependentResidents: 8339,
+    totalShelterCapacity: 14200,
+    unrecordedAccessibilityPct: 93.3,
+    surgeExposedSheltersCount: 0,
+    medicalSheltersCount: 4
   },
   tracts: [
     {

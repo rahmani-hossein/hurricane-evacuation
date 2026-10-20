@@ -80,7 +80,9 @@ export const ReadinessBrief: React.FC<ReadinessBriefProps> = ({
                   <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-xs font-mono">1</span>
                   Who Cannot Leave (Vulnerable Populations)
                 </h3>
-                <span className="text-xs text-red-400 font-mono font-bold">3,840 Total Carless</span>
+                <span className="text-xs text-red-400 font-mono font-bold">
+                  {data.summary.totalCarlessHouseholds.toLocaleString()} Total Carless
+                </span>
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed mb-3">
