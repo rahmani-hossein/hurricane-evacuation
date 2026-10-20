@@ -6,7 +6,7 @@
 
 ## Context
 
-The team suspected that a teammate had created an agent directly in the Google Cloud UI and that it was not using the curated gold tables. We inventoried Agent Runtime and Agent Registry resources, inspected the live Cloud Run deployment, downloaded its Cloud Run source archive, and exercised its public API.
+The team suspected that a teammate had created an agent directly in the Google Cloud UI and that it was not using the curated gold tables. We inventoried Agent Runtime, Agent Registry, Discovery Engine, and project assets, inspected the Cloud Run deployment separately, downloaded its Cloud Run source archive, and exercised its public API. The Cloud Run command center is now explicitly excluded from the target agent in this note; it is the frontend deployment, not the separate build being sought.
 
 ## Findings
 
@@ -14,7 +14,7 @@ The team suspected that a teammate had created an agent directly in the Google C
 
 - Agent Runtime has one project-owned reasoning engine: **Miami-Dade Hurricane Readiness**, `projects/851021919219/locations/us-east1/reasoningEngines/1188724901742116864`.
 - Agent Registry has the corresponding Miami-Dade agent plus Google’s default Workspace Agent. No second teammate-created Agent Runtime/Registry agent was found.
-- Cloud Run service **`hurricane-evacuation-command`** is healthy at `https://hurricane-evacuation-command-w43rjf4g6q-ue.a.run.app` and was created by another lab account. This is the likely teammate-created command-center deployment.
+- Cloud Run service **`hurricane-evacuation-command`** is healthy at `https://hurricane-evacuation-command-w43rjf4g6q-ue.a.run.app` and was created by another lab account. It is the command-center frontend deployment, not the separate agent build requested here.
 - Its backend imports `agent.agent.query_miami_dade_readiness`, sets `DATASET = "evacuation_readiness_gold"`, and queries gold tables for overview, priority tracts, shelter options, and shelter details.
 - Its copilot calls the same Agent Runtime engine above. The live response identified itself as `Vertex AI Agent Runtime (gemini-3.6-flash)` and returned current gold-backed metrics.
 - Its frontend is **not fully live**. `frontend/src/App.tsx` initializes with `MOCK_MIAMI_DADE_DATA` and swaps to `MOCK_LEE_COUNTY_DATA`; `MapView`, `StatCards`, and `ReadinessBrief` render those mock objects. The frontend does not fetch the live overview, tract, or shelter endpoints for those visual surfaces.
@@ -72,3 +72,4 @@ The team suspected that a teammate had created an agent directly in the Google C
 - `/api/health`, `/api/miami-dade/overview`, `/api/miami-dade/priority-tracts?limit=3`, and `/api/miami-dade/shelter-options?limit=3` returned HTTP 200.
 - Copilot smoke tests returned HTTP 200 for overview, priority tracts, shelter options, and medically dependent/no-peer planning questions.
 - No source or response evidence was found for an independent UI-created agent separate from the Agent Runtime resource above.
+- Follow-up searches also found no additional Agent Registry agent, reasoning engine, Discovery Engine app/engine, Dialogflow agent surface, or other Vertex/agent asset in this project. A console URL, exact agent name, resource ID, or the teammate’s project ID is now required to locate the separate build.
