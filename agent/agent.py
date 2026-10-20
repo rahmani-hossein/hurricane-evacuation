@@ -40,6 +40,7 @@ from agent.tools import (
     get_county_power_dependence,
     run_equity_audit,
     find_outreach_candidates,
+    find_tract_by_coordinates,
 )
 
 
@@ -103,38 +104,27 @@ def query_miami_dade_readiness(
     return {"project": PROJECT, "county": "Miami-Dade", "question_type": question_type, "rows": rows}
 
 
-ALL_TOOLS = [
-    query_miami_dade_readiness,
+LEE_COUNTY_TOOLS = [
     rank_stranded_tracts,
     get_candidate_shelters,
     get_tract_access_state,
     get_county_power_dependence,
     run_equity_audit,
     find_outreach_candidates,
+    find_tract_by_coordinates,
     google_maps_grounding,
     google_search,
 ]
 
-COMBINED_INSTRUCTION = f"""
-You are the Florida Evacuation Readiness Planning Agent, serving emergency management coordinators across Florida counties, with specialized analytical tooling for Lee County (FIPS 12071) and Miami-Dade County (FIPS 12086).
-
-{SYSTEM_INSTRUCTION}
-
-For Miami-Dade County:
-- Use `query_miami_dade_readiness` for curated BigQuery evidence from `{PROJECT}.{DATASET}`.
-- Use Google Maps grounding for one named shelter at a time when the user asks to verify whether a place/address is current or when selecting a route. Do not use Maps to infer accessibility, operational capacity, medical suitability, or shelter opening status.
-- Always distinguish listed capacity from confirmed available capacity, straight-line distance from drive time, and unrecorded accessibility from inaccessible.
-"""
-
 
 def create_evacuation_agent() -> Agent:
-    """Builds and returns the Florida Evacuation Readiness Agent."""
+    """Builds and returns the Florida Evacuation Readiness Agent exclusively for Lee County."""
     return Agent(
         name="florida_evacuation_readiness_agent",
         model=MODEL_NAME,
-        description="Planning-time evacuation readiness agent for Florida counties (Lee County & Miami-Dade).",
-        instruction=COMBINED_INSTRUCTION,
-        tools=ALL_TOOLS,
+        description="Pre-season hurricane evacuation readiness planning agent exclusively specialized for Lee County, Florida (FIPS 12071).",
+        instruction=SYSTEM_INSTRUCTION,
+        tools=LEE_COUNTY_TOOLS,
     )
 
 

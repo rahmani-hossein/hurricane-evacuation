@@ -34,3 +34,5 @@ frontend/dist-ssr/
 # ADK runtime local state
 .adk/
 agent/.adk/
+agent_tmp*/
+

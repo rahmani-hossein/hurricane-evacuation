@@ -51,27 +51,32 @@ def get_candidate_shelters(geo_id: str) -> List[Dict[str, Any]]:
     
     Only returns shelters where usage IN ('EVAC', 'BOTH') and that are outside confirmed surge zones.
     Preserves distinct wheelchair records: 'YES', 'NO', or 'UNRECORDED'.
+    Returns tract origin coordinates (tract_lat, tract_lon) and shelter addresses so Google Maps
+    can verify real-time driving/walking distance, availability, and physical accessibility.
     
     Args:
         geo_id: 11-digit Census tract ID (e.g., '12071020801').
     
     Returns:
-        List of candidate shelters with distance in km, wheelchair_record, and capacity.
+        List of candidate shelters with distance in km, tract_lat, tract_lon, wheelchair_record, and capacity.
     """
     client = _get_bq_client()
     query = f"""
     SELECT 
-        shelter_id,
-        shelter_name,
-        address_1,
-        city,
-        evacuation_capacity,
-        wheelchair_record,
-        surge_record,
-        km_straight_line
-    FROM `{PROJECT_ID}.{DATASET_ID}.lee_tract_shelter_options`
-    WHERE tract_geo_id = @geo_id
-    ORDER BY km_straight_line ASC
+        s.shelter_id,
+        s.shelter_name,
+        s.address_1,
+        s.city,
+        s.evacuation_capacity,
+        s.wheelchair_record,
+        s.surge_record,
+        s.km_straight_line,
+        r.lat AS tract_lat,
+        r.lon AS tract_lon
+    FROM `{PROJECT_ID}.{DATASET_ID}.lee_tract_shelter_options` s
+    JOIN `{PROJECT_ID}.{DATASET_ID}.lee_tract_risk` r ON s.tract_geo_id = r.geo_id
+    WHERE s.tract_geo_id = @geo_id
+    ORDER BY s.km_straight_line ASC
     """
     job_config = bigquery.QueryJobConfig(
         query_parameters=[bigquery.ScalarQueryParameter("geo_id", "STRING", geo_id)]
@@ -225,3 +230,44 @@ def find_outreach_candidates(
     params.append(bigquery.ScalarQueryParameter("top_n", "INT64", top_n))
     job = client.query(query, bigquery.QueryJobConfig(query_parameters=params))
     return [dict(row.items()) for row in job.result()]
+
+
+def find_tract_by_coordinates(latitude: float, longitude: float) -> Dict[str, Any]:
+    """Finds the Lee County census tract corresponding to the specified geographic coordinates.
+    
+    Uses BigQuery ST_DISTANCE against tract centroids in `lee_tract_risk` to find the enclosing or nearest tract.
+    
+    Args:
+        latitude: Latitude coordinate of the resident (e.g. 26.6916).
+        longitude: Longitude coordinate of the resident (e.g. -81.9078).
+        
+    Returns:
+        Dict with geo_id, stranded_score, total_pop, demographics, tract coordinates, and distance_to_tract_centroid_m.
+    """
+    client = _get_bq_client()
+    query = f"""
+    SELECT 
+        geo_id,
+        stranded_score,
+        total_pop,
+        households_no_vehicle,
+        ROUND(pct_no_vehicle, 1) as pct_no_vehicle,
+        ROUND(pct_age_65_plus, 1) as pct_age_65_plus,
+        ROUND(pct_disability, 1) as pct_disability,
+        ROUND(pct_mobile_homes, 1) as pct_mobile_homes,
+        lat as tract_lat,
+        lon as tract_lon,
+        ROUND(ST_DISTANCE(point, ST_GEOGPOINT(@lon, @lat)), 1) AS distance_to_tract_centroid_m
+    FROM `{PROJECT_ID}.{DATASET_ID}.lee_tract_risk`
+    ORDER BY distance_to_tract_centroid_m ASC
+    LIMIT 1
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("lat", "FLOAT64", latitude),
+            bigquery.ScalarQueryParameter("lon", "FLOAT64", longitude),
+        ]
+    )
+    results = [dict(row) for row in client.query(query, job_config=job_config)]
+    return results[0] if results else {}
+

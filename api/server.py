@@ -588,9 +588,118 @@ def get_lee_readiness():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Teammates' Deployed Vertex AI Reasoning Engines
-LEE_REASONING_ENGINE_ID = "projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104"
-MIAMI_REASONING_ENGINE_ID = "projects/851021919219/locations/us-east1/reasoningEngines/1188724901742116864"
+
+@app.get("/api/lee/locate-shelter")
+def locate_lee_shelter(lat: float, lon: float, address: Optional[str] = None):
+    """Locates the Lee County census tract for given coordinates and returns candidate shelters."""
+    try:
+        from agent.tools import find_tract_by_coordinates, get_candidate_shelters, get_tract_access_state
+
+        tract_info = find_tract_by_coordinates(lat, lon)
+        if not tract_info:
+            raise HTTPException(status_code=404, detail="No Lee County census tract found for the given coordinates.")
+
+        geo_id = tract_info.get("geo_id")
+        access_state = get_tract_access_state(geo_id)
+        shelters = get_candidate_shelters(geo_id)
+
+        formatted_shelters = []
+        for s in shelters:
+            street = s.get("address_1") or s.get("shelter_address") or ""
+            city = s.get("city") or "Lee County"
+            addr = f"{street}, {city}, FL" if street else f"{city}, FL"
+            formatted_shelters.append({
+                "shelter_id": s.get("shelter_id"),
+                "shelter_name": s.get("shelter_name"),
+                "address": addr,
+                "distance_km_straight_line": s.get("km_straight_line"),
+                "evacuation_capacity": s.get("evacuation_capacity"),
+                "wheelchair_record": s.get("wheelchair_record"),
+                "data_quality_status": s.get("data_quality_status"),
+                "google_maps_url": f"https://maps.google.com/?q={quote_plus(addr)}"
+            })
+
+        return {
+            "query": {
+                "latitude": lat,
+                "longitude": lon,
+                "address": address
+            },
+            "tract": {
+                "geo_id": geo_id,
+                "stranded_score": tract_info.get("stranded_score"),
+                "total_population": tract_info.get("total_pop"),
+                "carless_households": tract_info.get("households_no_vehicle"),
+                "pct_no_vehicle": tract_info.get("pct_no_vehicle"),
+                "pct_seniors_65_plus": tract_info.get("pct_age_65_plus"),
+                "pct_disability": tract_info.get("pct_disability"),
+                "pct_mobile_homes": tract_info.get("pct_mobile_homes"),
+                "distance_to_centroid_meters": tract_info.get("distance_to_tract_centroid_m")
+            },
+            "access_state": access_state.get("access_state"),
+            "action_recommendation": access_state.get("action_recommendation"),
+            "candidate_shelters": formatted_shelters
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Teammates' Deployed Agent Services
+# 1. Cloud Run Evacuation Agent API (evacuation-agent-api): ADK FastAPI server built & deployed by teammates (docs/DEPLOYMENT.md)
+TEAMMATE_AGENT_API_URL = os.environ.get(
+    "TEAMMATE_AGENT_API_URL",
+    "https://evacuation-agent-api-851021919219.us-east1.run.app"
+)
+
+# 2. Deployed Vertex AI Reasoning Engines (Fallback & alternative platform target)
+LEE_REASONING_ENGINE_ID = os.environ.get(
+    "LEE_REASONING_ENGINE_ID",
+    "projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272"
+)
+LEE_FALLBACK_REASONING_ENGINE_ID = "projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104"
+MIAMI_REASONING_ENGINE_ID = os.environ.get(
+    "MIAMI_REASONING_ENGINE_ID",
+    "projects/851021919219/locations/us-east1/reasoningEngines/1188724901742116864"
+)
+
+def invoke_teammate_agent_api(message: str, user_id: str = "coordinator") -> str:
+    """Invokes the teammate's deployed Evacuation Agent API (evacuation-agent-api Cloud Run service)."""
+    import requests
+
+    # 1. Create a session on the teammate's agent API
+    sess_url = f"{TEAMMATE_AGENT_API_URL}/apps/agent/users/{user_id}/sessions"
+    sess_res = requests.post(sess_url, json={}, timeout=15)
+    sess_res.raise_for_status()
+    session_id = sess_res.json().get("id")
+    if not session_id:
+        raise ValueError(f"No session ID from teammate Agent API: {sess_res.text}")
+
+    # 2. Run query against teammate's agent API
+    run_url = f"{TEAMMATE_AGENT_API_URL}/run"
+    payload = {
+        "appName": "agent",
+        "userId": user_id,
+        "sessionId": session_id,
+        "newMessage": {
+            "role": "user",
+            "parts": [{"text": message}]
+        }
+    }
+    run_res = requests.post(run_url, json=payload, timeout=90)
+    run_res.raise_for_status()
+    events = run_res.json()
+
+    text_parts = []
+    for ev in events:
+        content = ev.get("content", {})
+        for p in content.get("parts", []):
+            if "text" in p and p["text"]:
+                text_parts.append(p["text"])
+
+    if not text_parts:
+        raise RuntimeError("Teammate Agent API returned empty text parts.")
+    return "".join(text_parts)
 
 def invoke_teammate_reasoning_engine(engine_id: str, message: str, user_id: str = "dashboard_user") -> str:
     """Invokes the teammate's deployed Vertex AI Reasoning Engine using the official REST execution endpoint."""
@@ -659,12 +768,36 @@ def copilot_chat(req: QueryRequest):
     user_query = req.query.strip()
     county_name = req.county or "Lee County"
 
-    # Route query to the appropriate teammate's deployed Vertex AI Agent Engine
+    # Application is scoped strictly to Lee County, FL (FIPS 12071)
+    is_lee = True
     engine_id = LEE_REASONING_ENGINE_ID
     active_county = "Lee County"
 
+    agent_answer = None
+    engine_label = None
+    active_identifier = None
+
+    # Priority 1: Call teammate's deployed Cloud Run Evacuation Agent API (evacuation-agent-api)
     try:
-        agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
+        try:
+            agent_answer = invoke_teammate_agent_api(user_query)
+            engine_label = "Teammate Evacuation Agent API (evacuation-agent-api)"
+            active_identifier = TEAMMATE_AGENT_API_URL
+        except Exception as api_err:
+            print(f"Teammate Agent API ({TEAMMATE_AGENT_API_URL}) error: {api_err}. Falling back to teammate Reasoning Engine...")
+            try:
+                agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
+                engine_label = "Teammate Vertex AI Reasoning Engine"
+                active_identifier = engine_id
+            except Exception as primary_err:
+                if is_lee and engine_id != LEE_FALLBACK_REASONING_ENGINE_ID:
+                    print(f"Primary Lee engine {engine_id} failed: {primary_err}. Trying fallback {LEE_FALLBACK_REASONING_ENGINE_ID}...")
+                    engine_id = LEE_FALLBACK_REASONING_ENGINE_ID
+                    agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
+                    engine_label = "Teammate Vertex AI Reasoning Engine (Fallback)"
+                    active_identifier = engine_id
+                else:
+                    raise primary_err
 
         sources = [
                 {
@@ -685,16 +818,35 @@ def copilot_chat(req: QueryRequest):
             "answer": agent_answer,
             "sources": sources,
             "is_ai_generated": True,
-            "model": "Vertex AI Reasoning Engine (gemini-3.6-flash / ADK Tools)",
-            "engine_id": engine_id,
+            "model": engine_label or "Teammate Evacuation Agent API (evacuation-agent-api)",
+            "engine_id": active_identifier or TEAMMATE_AGENT_API_URL,
             "county": active_county
         }
     except Exception as e:
-        print(f"Error querying teammate Reasoning Engine ({engine_id}):", e)
-        raise HTTPException(
-            status_code=502,
-            detail=f"Unable to reach Lee County Vertex AI Reasoning Engine ({engine_id}): {str(e)}"
-        )
+        print(f"Error querying teammate Agent API / Reasoning Engine ({engine_id}):", e)
+        # Attempt fallback to alternative reasoning engine if available
+        alt_engine = MIAMI_REASONING_ENGINE_ID if is_lee else LEE_REASONING_ENGINE_ID
+        try:
+            alt_answer = invoke_teammate_reasoning_engine(alt_engine, user_query)
+            return {
+                "answer": alt_answer,
+                "sources": [
+                    {
+                        "title": "FEMA Evacuation Registry Facility Grounding",
+                        "uri": "https://maps.google.com"
+                    }
+                ],
+                "is_ai_generated": True,
+                "model": "Vertex AI Reasoning Engine (Fallback / ADK Tools)",
+                "engine_id": alt_engine,
+                "county": active_county
+            }
+        except Exception as alt_err:
+            print("Both agent targets encountered error:", alt_err)
+            raise HTTPException(
+                status_code=502,
+                detail=f"Unable to reach teammate Evacuation Agent API ({TEAMMATE_AGENT_API_URL}) or Reasoning Engine ({engine_id}): {str(e)}"
+            )
 
 # Serve the static shell with runtime configuration. Vite's import.meta.env values are
 # build-time only, while Cloud Run supplies the browser key as a runtime environment var.
