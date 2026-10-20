@@ -32,15 +32,15 @@ The README scores impact and insight, technical execution including genuine Maps
 
 ## Final decision
 
-Use a light, warm, civic visual system rather than a dark product-dashboard theme. The supplied community image anchors the human opening. The hero interaction is the animated “county loop” on slide 3: a single click animates risk, partners, peers, shelter grounding, and the resident plan into one connected system. Slides remain sparse enough to present, but carry enough explanation for a handoff.
+Use a light, warm, civic visual system rather than a dark product-dashboard theme. A generated Lee County community-planning image anchors the human opening: neighbors, an older resident, a caregiver, and a volunteer reviewing a map together before storm season. The hero interaction is a conversational agent demo on slide 3, styled like the supplied reference deck: the planner asks “What are my top risk spots?”, then clicks prompts for community groups, shelter unknowns, or medical needs and sees the grounded next action. Slides remain sparse enough to present, but carry enough explanation for a handoff.
 
 1. **No one gets left behind** — Ian statistic, Lee County framing, community image.
 2. **Community is the multiplier** — Lee County evidence and why scarce resources require local capacity.
-3. **Watch a plan come together** — animated risk → partner → peer → shelter → resident loop.
+3. **Ask the agent, then act locally** — conversational risk answer with clickable Lee County planning prompts.
 4. **The planner’s brief becomes a community brief** — county actions and local outreach workflow.
 5. **Use Maps for the place; use people for the unknown** — grounding, limitations, and human validation.
 6. **The plan travels with the person** — app placeholders plus CTA for county planners, hubs, volunteers, and residents.
 
 ## Validation notes
 
-Run the real HTML through a local server at desktop and mobile widths. Verify six snap slides, arrow/PageUp/PageDown/Space navigation, progress state, the slide-3 animation button, role selection on slide 6, and placeholder labels for future app screenshots. Check that the deck consistently says **Lee County**, that the local names and numbers match the repo, and that no slide treats public data as individual identification or Maps as proof of shelter accessibility.
+Run the real HTML through a local server at desktop and mobile widths. Verify six snap slides, arrow/PageUp/PageDown/Space navigation, progress state, slide-3 conversation playback and prompt buttons, role selection on slide 6, and the live Neighbor Lift app screens represented on slide 6. Check that the deck consistently says **Lee County**, that the local names and numbers match the repo, and that no slide treats public data as individual identification or Maps as proof of shelter accessibility.
