@@ -132,7 +132,9 @@ export const ReadinessBrief: React.FC<ReadinessBriefProps> = ({
                   <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-mono">2</span>
                   Where They Would Go (Shelter Feasibility)
                 </h3>
-                <span className="text-xs text-emerald-400 font-mono font-bold">28,400 Capacity</span>
+                <span className="text-xs text-emerald-400 font-mono font-bold">
+                  {data.summary.totalShelterCapacity.toLocaleString()} Capacity
+                </span>
               </div>
 
               <div className="text-xs text-slate-300 leading-relaxed mb-3">
@@ -181,7 +183,9 @@ export const ReadinessBrief: React.FC<ReadinessBriefProps> = ({
                   <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-mono">3</span>
                   What to Fix Before the Season (Directives)
                 </h3>
-                <span className="text-xs text-amber-400 font-mono font-bold">4 Action Items</span>
+                <span className="text-xs text-amber-400 font-mono font-bold">
+                  {data.directives.length} Action Directives
+                </span>
               </div>
 
               <div className="space-y-2">
