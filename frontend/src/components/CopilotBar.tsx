@@ -3,13 +3,21 @@ import { Send, Sparkles, Compass } from 'lucide-react';
 
 interface CopilotBarProps {
   onRunQuery: (query: string) => void;
+  selectedCounty?: string;
 }
 
-export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery }) => {
+export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery, selectedCounty = 'Miami-Dade County' }) => {
   const [input, setInput] = useState('');
 
-  const quickPrompts = [
-    "Which shelters in this county are in the surge zone?",
+  const isLee = selectedCounty.toLowerCase().includes('lee');
+
+  const quickPrompts = isLee ? [
+    "What are the top 3 stranded tracts in Lee County?",
+    "Candidate shelters within 2 km of Tract 12071020801",
+    "How many residents rely on medical electricity (emPOWER)?",
+    "State B verify-first checklist for unrecorded shelters"
+  ] : [
+    "Which shelters in Miami-Dade are in surge zone?",
     "Find tracts with >400 zero-vehicle households",
     "Audit unrecorded wheelchair status for high-capacity shelters",
     "Where should we stage paratransit evacuation routes?"

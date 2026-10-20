@@ -12,6 +12,7 @@ export const App: React.FC = () => {
   const [selectedCounty, setSelectedCounty] = useState('Miami-Dade County');
   const [data, setData] = useState<CountyReadinessData>(MOCK_MIAMI_DADE_DATA);
   const [liveMiamiDadeData, setLiveMiamiDadeData] = useState<CountyReadinessData | null>(null);
+  const [liveLeeCountyData, setLiveLeeCountyData] = useState<CountyReadinessData | null>(null);
   const [dataSourceLabel, setDataSourceLabel] = useState<string>('Connecting to BigQuery Gold API...');
   const [isLive, setIsLive] = useState<boolean>(false);
   const [selectedShelter, setSelectedShelter] = useState<ShelterCandidate | undefined>(undefined);
@@ -22,11 +23,13 @@ export const App: React.FC = () => {
     answer: string;
     sources: Array<{ title: string; uri: string }>;
     model?: string;
+    engineId?: string;
+    county?: string;
     isAi?: boolean;
   } | null>(null);
 
   useEffect(() => {
-    async function loadLiveCountyData() {
+    async function loadInitialData() {
       try {
         const res = await fetch('/api/miami-dade/readiness');
         if (res.ok) {
@@ -34,7 +37,7 @@ export const App: React.FC = () => {
           setLiveMiamiDadeData(goldData);
           setData(goldData);
           setIsLive(true);
-          setDataSourceLabel('Live BigQuery Gold API');
+          setDataSourceLabel('Live BigQuery Gold API (Miami-Dade FIPS 12086)');
         } else {
           setDataSourceLabel('Baseline Cache Active');
         }
@@ -43,19 +46,61 @@ export const App: React.FC = () => {
         setDataSourceLabel('Baseline Cache Active');
       }
     }
-    loadLiveCountyData();
+    loadInitialData();
   }, []);
 
-  const handleSelectCounty = (county: string) => {
+  const handleSelectCounty = async (county: string) => {
     setSelectedCounty(county);
     if (county.includes('Lee')) {
-      setData(MOCK_LEE_COUNTY_DATA);
-      setIsLive(false);
-      setDataSourceLabel('Offline Demo Preview (Lee County)');
+      if (liveLeeCountyData) {
+        setData(liveLeeCountyData);
+        setIsLive(true);
+        setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
+      } else {
+        try {
+          const res = await fetch('/api/lee/readiness');
+          if (res.ok) {
+            const leeData = await res.json();
+            setLiveLeeCountyData(leeData);
+            setData(leeData);
+            setIsLive(true);
+            setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
+          } else {
+            setData(MOCK_LEE_COUNTY_DATA);
+            setIsLive(false);
+            setDataSourceLabel('Offline Demo Cache (Lee County)');
+          }
+        } catch {
+          setData(MOCK_LEE_COUNTY_DATA);
+          setIsLive(false);
+          setDataSourceLabel('Offline Demo Cache (Lee County)');
+        }
+      }
     } else {
-      setData(liveMiamiDadeData || MOCK_MIAMI_DADE_DATA);
-      setIsLive(liveMiamiDadeData !== null);
-      setDataSourceLabel(liveMiamiDadeData ? 'Live BigQuery Gold API' : 'Baseline Cache Active');
+      if (liveMiamiDadeData) {
+        setData(liveMiamiDadeData);
+        setIsLive(true);
+        setDataSourceLabel('Live BigQuery Gold API (Miami-Dade FIPS 12086)');
+      } else {
+        try {
+          const res = await fetch('/api/miami-dade/readiness');
+          if (res.ok) {
+            const miamiData = await res.json();
+            setLiveMiamiDadeData(miamiData);
+            setData(miamiData);
+            setIsLive(true);
+            setDataSourceLabel('Live BigQuery Gold API (Miami-Dade FIPS 12086)');
+          } else {
+            setData(MOCK_MIAMI_DADE_DATA);
+            setIsLive(false);
+            setDataSourceLabel('Baseline Cache Active');
+          }
+        } catch {
+          setData(MOCK_MIAMI_DADE_DATA);
+          setIsLive(false);
+          setDataSourceLabel('Baseline Cache Active');
+        }
+      }
     }
   };
 
@@ -74,13 +119,15 @@ export const App: React.FC = () => {
           answer: payload.answer,
           sources: payload.sources || [],
           model: payload.model,
+          engineId: payload.engine_id,
+          county: payload.county,
           isAi: payload.is_ai_generated
         });
         setIsQueryLoading(false);
         return;
       }
     } catch (err) {
-      console.warn('Falling back to built-in models:', err);
+      console.warn('Falling back to built-in reasoning:', err);
     } finally {
       setIsQueryLoading(false);
     }
@@ -152,25 +199,25 @@ export const App: React.FC = () => {
       </div>
 
       {/* 5. Bottom Interactive Copilot Command Bar */}
-      <CopilotBar onRunQuery={handleRunQuery} />
+      <CopilotBar onRunQuery={handleRunQuery} selectedCounty={selectedCounty} />
 
       {/* Loading Modal */}
       {isQueryLoading && (
         <div className="fixed inset-0 z-[2000] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-blue-500/40 rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col items-center text-center">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <h3 className="text-white font-bold text-sm mb-1">Consulting Hurricane Readiness Copilot...</h3>
+            <h3 className="text-white font-bold text-sm mb-1">Consulting Teammate Reasoning Engine...</h3>
             <p className="text-slate-400 text-xs leading-relaxed">
-              Invoking <span className="text-blue-300 font-medium">Vertex AI gemini-2.5-flash</span> with live BigQuery Gold tables and Google Maps Grounding.
+              Invoking <span className="text-blue-300 font-medium">Vertex AI Agent Runtime (gemini-3.6-flash)</span> with live BigQuery tools & Google Maps Grounding.
             </p>
           </div>
         </div>
       )}
 
-      {/* Live AI Response Modal */}
+      {/* Live Agent Response Modal */}
       {agentResponseModal && (
         <div className="fixed inset-0 z-[2000] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
             <button
               onClick={() => setAgentResponseModal(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white"
@@ -178,17 +225,24 @@ export const App: React.FC = () => {
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center justify-between mb-2 pr-6">
-              <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <div className="flex flex-col gap-1 mb-2 pr-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span>Live Agent Engine • {agentResponseModal.model || 'Vertex AI Reasoning Engine'}</span>
+                </div>
+                <span className="text-[10px] bg-blue-950 text-blue-300 px-2 py-0.5 rounded border border-blue-800">
+                  {agentResponseModal.county || selectedCounty} Grounded
                 </span>
-                <span>Live AI Generated • {agentResponseModal.model || 'gemini-2.5-flash'}</span>
               </div>
-              <span className="text-[10px] bg-blue-950 text-blue-300 px-2 py-0.5 rounded border border-blue-800">
-                BigQuery Gold Grounded
-              </span>
+              {agentResponseModal.engineId && (
+                <div className="text-[10px] font-mono text-slate-400 bg-slate-950/80 px-2 py-1 rounded border border-slate-800 truncate">
+                  Engine: <span className="text-blue-400">{agentResponseModal.engineId}</span>
+                </div>
+              )}
             </div>
 
             <h3 className="text-white font-bold text-sm mb-3">"{agentResponseModal.query}"</h3>
