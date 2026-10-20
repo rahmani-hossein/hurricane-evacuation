@@ -1,20 +1,45 @@
-"""Interactive Miami-Dade Hurricane Readiness ADK agent."""
+"""Interactive Florida Hurricane Evacuation Readiness ADK agent.
+
+Supports multi-county operations for both Miami-Dade County (12086) and Lee County (12071)
+using Google ADK, BigQuery analytical views, and Google Maps Grounding on Gemini 3.x.
+"""
 from __future__ import annotations
 
 import os
-from typing import Any
+import sys
+import asyncio
+from typing import Generator, Any, Optional, Dict, List
 
-from google.adk.agents import Agent
-from google.adk.tools import google_maps_grounding
-from google.cloud import bigquery
-
+# Ensure repository root is on sys.path
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-9fa9c7b57012")
 DATASET = "evacuation_readiness_gold"
+MODEL_NAME = os.environ.get("GEMINI_MODEL", os.environ.get("ADK_MODEL", "gemini-3.6-flash"))
 
 # Agent Runtime may live in a regional location while Gemini 3.x is served from
 # the supported global endpoint. Set this before ADK constructs its model client.
-os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
+os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
+os.environ.setdefault("GOOGLE_CLOUD_PROJECT", PROJECT)
+os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
+
+from google.cloud import bigquery
+from google.adk.agents import Agent
+from google.adk.tools import google_maps_grounding
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
+
+from agent.prompts import SYSTEM_INSTRUCTION
+from agent.tools import (
+    rank_stranded_tracts,
+    get_candidate_shelters,
+    get_tract_access_state,
+    get_county_power_dependence,
+    run_equity_audit,
+)
 
 
 def query_miami_dade_readiness(
@@ -77,33 +102,75 @@ def query_miami_dade_readiness(
     return {"project": PROJECT, "county": "Miami-Dade", "question_type": question_type, "rows": rows}
 
 
-root_agent = Agent(
-    name="miami_dade_hurricane_readiness",
-    # Gemini 3.x is required because this agent combines a custom function tool
-    # with Google Maps grounding in the same turn.
-    model="gemini-3.6-flash",
-    description="Planning-time evacuation readiness agent for Miami-Dade County.",
-    instruction="""
-You are the Miami-Dade Hurricane Readiness coordinator agent.
+ALL_TOOLS = [
+    query_miami_dade_readiness,
+    rank_stranded_tracts,
+    get_candidate_shelters,
+    get_tract_access_state,
+    get_county_power_dependence,
+    run_equity_audit,
+    google_maps_grounding,
+]
 
-Use query_miami_dade_readiness for curated BigQuery evidence. Use Google Maps grounding for
-one named shelter at a time when the user asks to verify whether a place/address is current or
-when selecting a route. Do not use Maps to infer accessibility, operational capacity, medical
-suitability, or shelter opening status.
+COMBINED_INSTRUCTION = f"""
+You are the Florida Evacuation Readiness Planning Agent, serving emergency management coordinators across Florida counties, with specialized analytical tooling for Lee County (FIPS 12071) and Miami-Dade County (FIPS 12086).
 
-Always distinguish:
-- listed capacity from confirmed available capacity;
-- straight-line distance from drive or transit time;
-- mobility proxy from reliable transportation;
-- accessibility unrecorded from inaccessible;
-- candidate needs current verification from open.
+{SYSTEM_INSTRUCTION}
 
-The mobility proxy combines no-vehicle household rate, mobility limitation, and no-internet rate.
-It is not CDC PLACES LACKTRPT and never identifies an individual as vulnerable.
+For Miami-Dade County:
+- Use `query_miami_dade_readiness` for curated BigQuery evidence from `{PROJECT}.{DATASET}`.
+- Use Google Maps grounding for one named shelter at a time when the user asks to verify whether a place/address is current or when selecting a route. Do not use Maps to infer accessibility, operational capacity, medical suitability, or shelter opening status.
+- Always distinguish listed capacity from confirmed available capacity, straight-line distance from drive time, and unrecorded accessibility from inaccessible.
+"""
 
-When Maps returns a place, cite Google Maps immediately after the supported statement and keep
-the answer grounded in the returned place evidence. If a shelter identity/address mismatch is
-found, create a verification recommendation instead of silently changing the source record.
-""",
-    tools=[query_miami_dade_readiness, google_maps_grounding],
-)
+def create_evacuation_agent() -> Agent:
+    """Builds and returns the Florida Evacuation Readiness Agent."""
+    return Agent(
+        name="florida_evacuation_readiness_agent",
+        model=MODEL_NAME,
+        description="Planning-time evacuation readiness agent for Florida counties (Lee County & Miami-Dade).",
+        instruction=COMBINED_INSTRUCTION,
+        tools=ALL_TOOLS,
+    )
+
+# Expose root_agent for ADK CLI & ADK Web UI loader
+root_agent = create_evacuation_agent()
+
+
+class EvacuationAgentRunner:
+    """Convenience wrapper for executing queries against the ADK agent."""
+
+    def __init__(self, agent: Optional[Agent] = None, app_name: str = "evacuation_readiness_app"):
+        self.agent = agent or create_evacuation_agent()
+        self.app_name = app_name
+        self.session_service = InMemorySessionService()
+        self.runner = Runner(
+            app_name=self.app_name,
+            agent=self.agent,
+            session_service=self.session_service,
+        )
+
+    def query(self, user_message: str, user_id: str = "emergency_manager") -> str:
+        """Sends a query to the agent and returns the complete text response."""
+        session = asyncio.run(
+            self.session_service.create_session(
+                app_name=self.app_name,
+                user_id=user_id,
+            )
+        )
+        content = types.Content(parts=[types.Part.from_text(text=user_message)])
+        events = list(
+            self.runner.run(
+                user_id=user_id,
+                session_id=session.id,
+                new_message=content,
+            )
+        )
+        
+        output_parts = []
+        for event in events:
+            if event.content:
+                for part in event.content.parts:
+                    if part.text:
+                        output_parts.append(part.text)
+        return "".join(output_parts)

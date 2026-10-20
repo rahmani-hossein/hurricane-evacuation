@@ -1,4 +1,4 @@
-"""Miami-Dade Hurricane Readiness ADK agent."""
+"""Florida Evacuation Readiness Agent package."""
 
 from .agent import root_agent
 
