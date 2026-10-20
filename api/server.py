@@ -565,6 +565,63 @@ def get_lee_readiness():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/api/lee/locate-shelter")
+def locate_lee_shelter(lat: float, lon: float, address: Optional[str] = None):
+    """Locates the Lee County census tract for given coordinates and returns candidate shelters."""
+    try:
+        from agent.tools import find_tract_by_coordinates, get_candidate_shelters, get_tract_access_state
+
+        tract_info = find_tract_by_coordinates(lat, lon)
+        if not tract_info:
+            raise HTTPException(status_code=404, detail="No Lee County census tract found for the given coordinates.")
+
+        geo_id = tract_info.get("geo_id")
+        access_state = get_tract_access_state(geo_id)
+        shelters = get_candidate_shelters(geo_id)
+
+        formatted_shelters = []
+        for s in shelters:
+            street = s.get("address_1") or s.get("shelter_address") or ""
+            city = s.get("city") or "Lee County"
+            addr = f"{street}, {city}, FL" if street else f"{city}, FL"
+            formatted_shelters.append({
+                "shelter_id": s.get("shelter_id"),
+                "shelter_name": s.get("shelter_name"),
+                "address": addr,
+                "distance_km_straight_line": s.get("km_straight_line"),
+                "evacuation_capacity": s.get("evacuation_capacity"),
+                "wheelchair_record": s.get("wheelchair_record"),
+                "data_quality_status": s.get("data_quality_status"),
+                "google_maps_url": f"https://maps.google.com/?q={quote_plus(addr)}"
+            })
+
+        return {
+            "query": {
+                "latitude": lat,
+                "longitude": lon,
+                "address": address
+            },
+            "tract": {
+                "geo_id": geo_id,
+                "stranded_score": tract_info.get("stranded_score"),
+                "total_population": tract_info.get("total_pop"),
+                "carless_households": tract_info.get("households_no_vehicle"),
+                "pct_no_vehicle": tract_info.get("pct_no_vehicle"),
+                "pct_seniors_65_plus": tract_info.get("pct_age_65_plus"),
+                "pct_disability": tract_info.get("pct_disability"),
+                "pct_mobile_homes": tract_info.get("pct_mobile_homes"),
+                "distance_to_centroid_meters": tract_info.get("distance_to_tract_centroid_m")
+            },
+            "access_state": access_state.get("access_state"),
+            "action_recommendation": access_state.get("action_recommendation"),
+            "candidate_shelters": formatted_shelters
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Teammates' Deployed Agent Services
 # 1. Cloud Run Evacuation Agent API (evacuation-agent-api): ADK FastAPI server built & deployed by teammates (docs/DEPLOYMENT.md)
 TEAMMATE_AGENT_API_URL = os.environ.get(

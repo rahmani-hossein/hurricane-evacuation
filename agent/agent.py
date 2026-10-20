@@ -40,6 +40,7 @@ from agent.tools import (
     get_county_power_dependence,
     run_equity_audit,
     find_outreach_candidates,
+    find_tract_by_coordinates,
 )
 
 
@@ -110,6 +111,7 @@ LEE_COUNTY_TOOLS = [
     get_county_power_dependence,
     run_equity_audit,
     find_outreach_candidates,
+    find_tract_by_coordinates,
     google_maps_grounding,
     google_search,
 ]

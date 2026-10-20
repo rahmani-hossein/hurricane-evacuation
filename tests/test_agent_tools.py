@@ -16,6 +16,7 @@ from agent.tools import (
     get_tract_access_state,
     get_county_power_dependence,
     run_equity_audit,
+    find_tract_by_coordinates,
 )
 
 class TestAgentTools(unittest.TestCase):
@@ -62,5 +63,15 @@ class TestAgentTools(unittest.TestCase):
         self.assertIn("median_income", row)
         self.assertIn("poverty_rate", row)
 
+    def test_find_tract_by_coordinates(self):
+        # Coordinates in North Fort Myers (near Littleton Elementary)
+        tract = find_tract_by_coordinates(26.6916, -81.9078)
+        self.assertIsInstance(tract, dict)
+        self.assertEqual(tract.get("geo_id"), "12071020801")
+        self.assertGreater(tract.get("stranded_score", 0), 0.9)
+        self.assertLess(tract.get("distance_to_tract_centroid_m", 9999), 100)
+
+
 if __name__ == "__main__":
     unittest.main()
+
