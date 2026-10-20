@@ -743,11 +743,11 @@ def invoke_teammate_reasoning_engine(engine_id: str, message: str, user_id: str 
 @app.post("/api/copilot/chat")
 def copilot_chat(req: QueryRequest):
     user_query = req.query.strip()
-    county_name = req.county or "Miami-Dade County"
+    county_name = req.county or "Lee County"
 
-    is_lee = "lee" in county_name.lower() or "lee" in user_query.lower()
-    engine_id = LEE_REASONING_ENGINE_ID if is_lee else MIAMI_REASONING_ENGINE_ID
-    active_county = "Lee County" if is_lee else "Miami-Dade County"
+    # Application is scoped strictly to Lee County, FL (FIPS 12071)
+    engine_id = LEE_REASONING_ENGINE_ID
+    active_county = "Lee County"
 
     agent_answer = None
     engine_label = None
