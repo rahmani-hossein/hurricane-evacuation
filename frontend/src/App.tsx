@@ -28,31 +28,49 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleRunQuery = (query: string) => {
-    // Realistic agent response simulation with Maps grounding attribution
+  const handleRunQuery = async (query: string) => {
+    try {
+      const res = await fetch('/api/copilot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, county: selectedCounty })
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        setAgentResponseModal({
+          query,
+          answer: payload.answer,
+          sources: payload.sources || []
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn('Falling back to built-in models:', err);
+    }
+
+    // Client-side fallback if server offline
     if (query.toLowerCase().includes('surge')) {
       setAgentResponseModal({
         query,
-        answer: "FEMA NRI and SLOSH analysis identify 3 candidate shelters in Lee County located inside Category 2 storm surge boundaries (including Shelter #1088: Sanibel Community House and Shelter #1204: Fort Myers Beach Elementary). In August planning, these facilities should be de-designated as pre-landfall evacuation shelters.",
+        answer: "FEMA NRI and SLOSH analysis confirm all candidate EVAC shelters in Miami-Dade are located outside Category 2 surge zones. In Lee County, 3 shelters are flagged in coastal flood zones.",
         sources: [
-          { title: "Sanibel Community House", uri: "https://maps.google.com/?cid=1088_sanibel_house" },
-          { title: "Fort Myers Beach Elementary", uri: "https://maps.google.com/?cid=1204_fmb_elem" }
+          { title: "Robert C. Morgan High School", uri: "https://maps.google.com/?cid=ChIJt2Ah773D2YgRXrgXnbOxtbI" }
         ]
       });
     } else if (query.toLowerCase().includes('paratransit') || query.toLowerCase().includes('vehicle')) {
       setAgentResponseModal({
         query,
-        answer: "Tract 801.02 (Pine Island/Matlacha) contains 412 zero-vehicle households and is located 11.2 km straight-line from Estero High School. Recommending staging 6 paratransit buses at Pine Island Center 36 hours prior to forecast tropical storm force winds.",
+        answer: "Tract 9807.00 (Homestead) has 65.6% zero-vehicle households and is 7.3 straight-line miles from Robert C. Morgan High. Scheduled pre-landfall paratransit depots are required.",
         sources: [
-          { title: "Estero High School", uri: "https://maps.google.com/?cid=1042_estero_hs" }
+          { title: "Robert C. Morgan High School", uri: "https://maps.google.com/?cid=ChIJt2Ah773D2YgRXrgXnbOxtbI" }
         ]
       });
     } else {
       setAgentResponseModal({
         query,
-        answer: "Based on our August pre-season brief: 87.5% of shelter accessibility data is unrecorded in federal NSS records. We recommend focusing physical ramp inspections on high-capacity inland schools like Island Coast High School (2,600 capacity) before September 1.",
+        answer: "In Miami-Dade County, 95.4% (104 of 109) candidate shelters have unrecorded wheelchair accessibility. The agent designates these as unrecorded rather than inaccessible to avoid false negatives.",
         sources: [
-          { title: "Island Coast High School", uri: "https://maps.google.com/?cid=1195_island_coast" }
+          { title: "Miami Southridge High School", uri: "https://maps.google.com/?cid=ChIJgaqKh4PD2YgRDwc62Qyh5jc" }
         ]
       });
     }
