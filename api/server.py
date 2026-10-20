@@ -6,6 +6,7 @@ import base64
 from urllib.parse import quote_plus
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google.cloud import bigquery
@@ -134,6 +135,7 @@ def get_county_readiness():
                 "lat": float(t.get("lat")),
                 "lon": float(t.get("lon")),
                 "distanceToShelterKm": round(float(t.get("mobility_proxy_score") or 10) * 0.15, 1),
+                "riskScore": round(score, 2),
                 "riskTier": tier
             })
 
@@ -563,10 +565,14 @@ def get_lee_readiness():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Teammates' Deployed Vertex AI Reasoning Engines
-# 5276937832231862272: Latest deployed Lee County agent (FRONTEND_HANDOFF.md) with Search/Maps grounding
-# 7330860737289519104: Hossein's initial Lee County agent
-# 1188724901742116864: Julian's Miami-Dade agent
+# Teammates' Deployed Agent Services
+# 1. Cloud Run Evacuation Agent API (evacuation-agent-api): ADK FastAPI server built & deployed by teammates (docs/DEPLOYMENT.md)
+TEAMMATE_AGENT_API_URL = os.environ.get(
+    "TEAMMATE_AGENT_API_URL",
+    "https://evacuation-agent-api-851021919219.us-east1.run.app"
+)
+
+# 2. Deployed Vertex AI Reasoning Engines (Fallback & alternative platform target)
 LEE_REASONING_ENGINE_ID = os.environ.get(
     "LEE_REASONING_ENGINE_ID",
     "projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272"
@@ -576,6 +582,44 @@ MIAMI_REASONING_ENGINE_ID = os.environ.get(
     "MIAMI_REASONING_ENGINE_ID",
     "projects/851021919219/locations/us-east1/reasoningEngines/1188724901742116864"
 )
+
+def invoke_teammate_agent_api(message: str, user_id: str = "coordinator") -> str:
+    """Invokes the teammate's deployed Evacuation Agent API (evacuation-agent-api Cloud Run service)."""
+    import requests
+
+    # 1. Create a session on the teammate's agent API
+    sess_url = f"{TEAMMATE_AGENT_API_URL}/apps/agent/users/{user_id}/sessions"
+    sess_res = requests.post(sess_url, json={}, timeout=15)
+    sess_res.raise_for_status()
+    session_id = sess_res.json().get("id")
+    if not session_id:
+        raise ValueError(f"No session ID from teammate Agent API: {sess_res.text}")
+
+    # 2. Run query against teammate's agent API
+    run_url = f"{TEAMMATE_AGENT_API_URL}/run"
+    payload = {
+        "appName": "agent",
+        "userId": user_id,
+        "sessionId": session_id,
+        "newMessage": {
+            "role": "user",
+            "parts": [{"text": message}]
+        }
+    }
+    run_res = requests.post(run_url, json=payload, timeout=90)
+    run_res.raise_for_status()
+    events = run_res.json()
+
+    text_parts = []
+    for ev in events:
+        content = ev.get("content", {})
+        for p in content.get("parts", []):
+            if "text" in p and p["text"]:
+                text_parts.append(p["text"])
+
+    if not text_parts:
+        raise RuntimeError("Teammate Agent API returned empty text parts.")
+    return "".join(text_parts)
 
 def invoke_teammate_reasoning_engine(engine_id: str, message: str, user_id: str = "dashboard_user") -> str:
     """Invokes the teammate's deployed Vertex AI Reasoning Engine using the official REST execution endpoint."""
@@ -644,21 +688,36 @@ def copilot_chat(req: QueryRequest):
     user_query = req.query.strip()
     county_name = req.county or "Miami-Dade County"
 
-    # Route query to the appropriate teammate's deployed Vertex AI Agent Engine
     is_lee = "lee" in county_name.lower() or "lee" in user_query.lower()
     engine_id = LEE_REASONING_ENGINE_ID if is_lee else MIAMI_REASONING_ENGINE_ID
     active_county = "Lee County" if is_lee else "Miami-Dade County"
 
+    agent_answer = None
+    engine_label = None
+    active_identifier = None
+
+    # Priority 1: Call teammate's deployed Cloud Run Evacuation Agent API (evacuation-agent-api)
     try:
         try:
-            agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
-        except Exception as primary_err:
-            if is_lee and engine_id != LEE_FALLBACK_REASONING_ENGINE_ID:
-                print(f"Primary Lee engine {engine_id} failed: {primary_err}. Trying fallback {LEE_FALLBACK_REASONING_ENGINE_ID}...")
-                engine_id = LEE_FALLBACK_REASONING_ENGINE_ID
+            agent_answer = invoke_teammate_agent_api(user_query)
+            engine_label = "Teammate Evacuation Agent API (evacuation-agent-api)"
+            active_identifier = TEAMMATE_AGENT_API_URL
+        except Exception as api_err:
+            print(f"Teammate Agent API ({TEAMMATE_AGENT_API_URL}) error: {api_err}. Falling back to teammate Reasoning Engine...")
+            try:
                 agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
-            else:
-                raise primary_err
+                engine_label = "Teammate Vertex AI Reasoning Engine"
+                active_identifier = engine_id
+            except Exception as primary_err:
+                if is_lee and engine_id != LEE_FALLBACK_REASONING_ENGINE_ID:
+                    print(f"Primary Lee engine {engine_id} failed: {primary_err}. Trying fallback {LEE_FALLBACK_REASONING_ENGINE_ID}...")
+                    engine_id = LEE_FALLBACK_REASONING_ENGINE_ID
+                    agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
+                    engine_label = "Teammate Vertex AI Reasoning Engine (Fallback)"
+                    active_identifier = engine_id
+                else:
+                    raise primary_err
+
         if is_lee:
             sources = [
                 {
@@ -690,12 +749,12 @@ def copilot_chat(req: QueryRequest):
             "answer": agent_answer,
             "sources": sources,
             "is_ai_generated": True,
-            "model": "Vertex AI Reasoning Engine (ADK Tools & BigQuery Grounded)",
-            "engine_id": engine_id,
+            "model": engine_label or "Teammate Evacuation Agent API (evacuation-agent-api)",
+            "engine_id": active_identifier or TEAMMATE_AGENT_API_URL,
             "county": active_county
         }
     except Exception as e:
-        print(f"Error querying teammate Reasoning Engine ({engine_id}):", e)
+        print(f"Error querying teammate Agent API / Reasoning Engine ({engine_id}):", e)
         # Attempt fallback to alternative reasoning engine if available
         alt_engine = MIAMI_REASONING_ENGINE_ID if is_lee else LEE_REASONING_ENGINE_ID
         try:
@@ -709,22 +768,38 @@ def copilot_chat(req: QueryRequest):
                     }
                 ],
                 "is_ai_generated": True,
-                "model": "Vertex AI Reasoning Engine (gemini-3.6-flash / ADK Tools)",
+                "model": "Vertex AI Reasoning Engine (Fallback / ADK Tools)",
                 "engine_id": alt_engine,
                 "county": active_county
             }
         except Exception as alt_err:
-            print("Both reasoning engines encountered error:", alt_err)
+            print("Both agent targets encountered error:", alt_err)
             raise HTTPException(
                 status_code=502,
-                detail=f"Unable to reach teammate Vertex AI Reasoning Engine ({engine_id}): {str(e)}"
+                detail=f"Unable to reach teammate Evacuation Agent API ({TEAMMATE_AGENT_API_URL}) or Reasoning Engine ({engine_id}): {str(e)}"
             )
 
-# Mount static frontend build for single-container Cloud Run deployment
-from fastapi.staticfiles import StaticFiles
+# Serve the static shell with runtime configuration. Vite's import.meta.env values are
+# build-time only, while Cloud Run supplies the browser key as a runtime environment var.
 dist_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.exists(dist_dir):
-    app.mount("/", StaticFiles(directory=dist_dir, html=True), name="frontend")
+    @app.get("/", response_class=HTMLResponse)
+    def frontend_index():
+        index_path = os.path.join(dist_dir, "index.html")
+        with open(index_path, "r", encoding="utf-8") as index_file:
+            html = index_file.read()
+        runtime_config = json.dumps({
+            "googleMapsApiKey": os.environ.get("VITE_GOOGLE_MAPS_API_KEY", "")
+        }).replace("</", "<\\/")
+        return HTMLResponse(html.replace("</head>", f"<script>window.__APP_CONFIG__={runtime_config};</script></head>"))
+
+    @app.get("/{full_path:path}")
+    def frontend_files(full_path: str):
+        # Serve hashed assets directly and route client-side paths back to the shell.
+        requested_path = os.path.abspath(os.path.join(dist_dir, full_path))
+        if requested_path.startswith(os.path.abspath(dist_dir)) and os.path.isfile(requested_path):
+            return FileResponse(requested_path)
+        return frontend_index()
 
 if __name__ == "__main__":
     import uvicorn

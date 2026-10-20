@@ -206,9 +206,9 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 z-[2000] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-blue-500/40 rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col items-center text-center">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <h3 className="text-white font-bold text-sm mb-1">Consulting Teammate Reasoning Engine...</h3>
+            <h3 className="text-white font-bold text-sm mb-1">Consulting Teammate Evacuation Agent API...</h3>
             <p className="text-slate-400 text-xs leading-relaxed">
-              Invoking <span className="text-blue-300 font-medium">Vertex AI Agent Runtime (gemini-3.6-flash)</span> with live BigQuery tools & Google Maps Grounding.
+              Invoking <span className="text-blue-300 font-medium">Teammate Agent API (evacuation-agent-api)</span> with live BigQuery tools & Google Maps Grounding.
             </p>
           </div>
         </div>
@@ -232,7 +232,7 @@ export const App: React.FC = () => {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
-                  <span>Live Agent Engine • {agentResponseModal.model || 'Vertex AI Reasoning Engine'}</span>
+                  <span>{agentResponseModal.model || 'Teammate Evacuation Agent API'}</span>
                 </div>
                 <span className="text-[10px] bg-blue-950 text-blue-300 px-2 py-0.5 rounded border border-blue-800">
                   {agentResponseModal.county || selectedCounty} Grounded
@@ -240,7 +240,7 @@ export const App: React.FC = () => {
               </div>
               {agentResponseModal.engineId && (
                 <div className="text-[10px] font-mono text-slate-400 bg-slate-950/80 px-2 py-1 rounded border border-slate-800 truncate">
-                  Engine: <span className="text-blue-400">{agentResponseModal.engineId}</span>
+                  Backend: <span className="text-blue-400">{agentResponseModal.engineId}</span>
                 </div>
               )}
             </div>

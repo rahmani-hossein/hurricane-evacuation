@@ -8,6 +8,8 @@ export interface VulnerableTract {
   lat: number;
   lon: number;
   distanceToShelterKm: number;
+  /** Gold-table mobility proxy score used to derive riskTier. */
+  riskScore?: number;
   riskTier: 'CRITICAL' | 'HIGH' | 'MODERATE';
 }
 
