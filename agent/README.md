@@ -16,6 +16,14 @@ The outreach use case is exposed through `find_outreach_candidates` and the dedi
 uses grounded search to find and verify nearby community partners. Search results are leads, not
 proof of activation or willingness to deploy.
 
+## BigQuery MCP boundary
+
+All analytical tools in `agent/tools.py` send read-only SQL through Google's managed BigQuery MCP
+server at `https://bigquery.googleapis.com/mcp`, using the `execute_sql_readonly` tool. The agent
+does not instantiate `google.cloud.bigquery.Client` for analytical queries. MCP supplies the
+`goog-mcp-server: true` BigQuery job label, while the domain-specific Python tools preserve the
+Lee County planning rules and return the existing tool contracts.
+
 ## Key Assumptions & Data Realities for the Emergency Manager
 
 1. **Capacity 0 is a Paperwork / Floor-Plan Deficit (Not Building Incapacity)**:

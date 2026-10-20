@@ -25,7 +25,6 @@ os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 os.environ.setdefault("GOOGLE_CLOUD_PROJECT", PROJECT)
 os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 
-from google.cloud import bigquery
 from google.adk.agents import Agent
 from google.adk.tools import google_maps_grounding, google_search
 from google.adk.runners import Runner
@@ -42,6 +41,7 @@ from agent.tools import (
     find_outreach_candidates,
     find_tract_by_coordinates,
 )
+from agent.tools import _mcp_query, _sql_int, _sql_string
 
 
 def query_miami_dade_readiness(
@@ -59,12 +59,10 @@ def query_miami_dade_readiness(
         limit: Maximum rows returned for list queries.
     """
     limit = max(1, min(int(limit), 25))
-    client = bigquery.Client(project=PROJECT)
     if question_type == "overview":
         sql = f"""
         SELECT * FROM `{PROJECT}.{DATASET}.miami_dade_county_risk_snapshot`
         """
-        params = []
     elif question_type == "priority_tracts":
         sql = f"""
         SELECT geo_id, total_pop, pct_households_no_vehicle,
@@ -73,7 +71,6 @@ def query_miami_dade_readiness(
         ORDER BY mobility_proxy_score DESC
         LIMIT @limit
         """
-        params = [bigquery.ScalarQueryParameter("limit", "INT64", limit)]
     elif question_type == "shelter_options":
         sql = f"""
         SELECT *
@@ -82,10 +79,6 @@ def query_miami_dade_readiness(
         ORDER BY mobility_proxy_score DESC, straight_line_miles ASC
         LIMIT @limit
         """
-        params = [
-            bigquery.ScalarQueryParameter("geo_id", "STRING", geo_id),
-            bigquery.ScalarQueryParameter("limit", "INT64", limit),
-        ]
     elif question_type == "shelter":
         sql = f"""
         SELECT shelter_id, shelter_name, address_1, city, zip5, latitude, longitude,
@@ -95,12 +88,13 @@ def query_miami_dade_readiness(
         FROM `{PROJECT}.{DATASET}.shelter_readiness_snapshot`
         WHERE county_fips = '12086' AND shelter_id = @shelter_id
         """
-        params = [bigquery.ScalarQueryParameter("shelter_id", "INT64", shelter_id)]
     else:
         return {"error": "Unsupported question_type", "allowed": ["overview", "priority_tracts", "shelter_options", "shelter"]}
 
-    job_config = bigquery.QueryJobConfig(query_parameters=params)
-    rows = [dict(row) for row in client.query(sql, job_config=job_config).result()]
+    sql = sql.replace("@limit", str(_sql_int(limit, maximum=25)))
+    sql = sql.replace("@geo_id", "NULL" if geo_id is None else _sql_string(geo_id))
+    sql = sql.replace("@shelter_id", "NULL" if shelter_id is None else str(int(shelter_id)))
+    rows = _mcp_query(sql)
     return {"project": PROJECT, "county": "Miami-Dade", "question_type": question_type, "rows": rows}
 
 

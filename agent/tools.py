@@ -3,15 +3,117 @@
 These tools query the curated gold views in `evacuation_readiness_gold` scoped to Lee County, FL (12071).
 """
 
+from __future__ import annotations
+
 from typing import List, Dict, Any
-from google.cloud import bigquery
+import json
 import os
+import urllib.request
+
+import google.auth
+from google.auth.transport.requests import Request
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-9fa9c7b57012")
 DATASET_ID = "evacuation_readiness_gold"
+BIGQUERY_MCP_ENDPOINT = os.environ.get(
+    "BIGQUERY_MCP_ENDPOINT", "https://bigquery.googleapis.com/mcp"
+)
+BIGQUERY_SCOPE = "https://www.googleapis.com/auth/bigquery"
 
-def _get_bq_client() -> bigquery.Client:
-    return bigquery.Client(project=PROJECT_ID)
+
+def _sql_string(value: str) -> str:
+    """Return a safely escaped GoogleSQL string literal."""
+    return "'" + str(value).replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+
+def _sql_int(value: int, *, minimum: int = 1, maximum: int = 100) -> int:
+    value = int(value)
+    return max(minimum, min(value, maximum))
+
+
+def _mcp_query(query: str) -> List[Dict[str, Any]]:
+    """Execute read-only SQL through Google's managed BigQuery MCP server.
+
+    Keeping this boundary in one place makes it explicit that the agent's
+    analytical queries do not use the BigQuery Python client directly.
+    """
+    credentials, _ = google.auth.default(scopes=[BIGQUERY_SCOPE])
+    credentials.refresh(Request())
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": "execute_sql_readonly",
+            "arguments": {
+                "projectId": PROJECT_ID,
+                "query": query,
+                "timeoutMs": 20000,
+            },
+        },
+    }
+    request = urllib.request.Request(
+        BIGQUERY_MCP_ENDPOINT,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {credentials.token}",
+            "x-goog-user-project": PROJECT_ID,
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            "MCP-Protocol-Version": "2026-07-28",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        envelope = json.load(response)
+
+    if "error" in envelope:
+        raise RuntimeError(f"BigQuery MCP error: {envelope['error']}")
+    result = envelope.get("result", {})
+    if result.get("isError"):
+        raise RuntimeError(f"BigQuery MCP tool error: {result}")
+
+    structured = result.get("structuredContent")
+    if isinstance(structured, dict):
+        rows = structured.get("rows") or structured.get("result")
+        if isinstance(rows, list):
+            return _decode_mcp_rows(rows, structured.get("schema"))
+
+    # MCP servers may return the structured tool result as JSON text content.
+    for item in result.get("content", []):
+        if item.get("type") != "text":
+            continue
+        try:
+            decoded = json.loads(item.get("text", ""))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(decoded, dict):
+            rows = decoded.get("rows") or decoded.get("result")
+            if isinstance(rows, list):
+                return _decode_mcp_rows(rows, decoded.get("schema"))
+    raise RuntimeError("BigQuery MCP returned no tabular rows")
+
+
+def _decode_mcp_rows(rows: List[Any], schema: Dict[str, Any] | None) -> List[Dict[str, Any]]:
+    """Convert BigQuery MCP's wire rows ({f:[{v:...}]}) to normal dicts."""
+    fields = [field.get("name") for field in (schema or {}).get("fields", [])]
+    types = [field.get("type") for field in (schema or {}).get("fields", [])]
+    decoded = []
+    for row in rows:
+        values = row.get("f", []) if isinstance(row, dict) else row
+        record = {}
+        for index, name in enumerate(fields):
+            value = values[index].get("v") if index < len(values) else None
+            if value is not None and index < len(types):
+                if types[index] in {"INTEGER", "INT64"}:
+                    value = int(value)
+                elif types[index] in {"FLOAT", "FLOAT64", "NUMERIC", "BIGNUMERIC"}:
+                    value = float(value)
+                elif types[index] in {"BOOLEAN", "BOOL"}:
+                    value = str(value).lower() == "true"
+            record[name] = value
+        decoded.append(record)
+    return decoded
 
 def rank_stranded_tracts(top_n: int = 10) -> List[Dict[str, Any]]:
     """Ranks the census tracts in Lee County whose residents have the highest barrier to self-evacuation.
@@ -24,7 +126,6 @@ def rank_stranded_tracts(top_n: int = 10) -> List[Dict[str, Any]]:
     Returns:
         List of tract records including geo_id, population, stranded_score, and households without vehicle.
     """
-    client = _get_bq_client()
     query = f"""
     SELECT 
         geo_id,
@@ -40,11 +141,7 @@ def rank_stranded_tracts(top_n: int = 10) -> List[Dict[str, Any]]:
     ORDER BY stranded_score DESC
     LIMIT @top_n
     """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[bigquery.ScalarQueryParameter("top_n", "INT64", top_n)]
-    )
-    job = client.query(query, job_config=job_config)
-    return [dict(row.items()) for row in job.result()]
+    return _mcp_query(query.replace("@top_n", str(_sql_int(top_n))))
 
 def get_candidate_shelters(geo_id: str) -> List[Dict[str, Any]]:
     """Retrieves eligible pre-landfall evacuation shelters within reach for a given census tract.
@@ -60,7 +157,6 @@ def get_candidate_shelters(geo_id: str) -> List[Dict[str, Any]]:
     Returns:
         List of candidate shelters with distance in km, tract_lat, tract_lon, wheelchair_record, and capacity.
     """
-    client = _get_bq_client()
     query = f"""
     SELECT 
         s.shelter_id,
@@ -78,11 +174,7 @@ def get_candidate_shelters(geo_id: str) -> List[Dict[str, Any]]:
     WHERE s.tract_geo_id = @geo_id
     ORDER BY s.km_straight_line ASC
     """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[bigquery.ScalarQueryParameter("geo_id", "STRING", geo_id)]
-    )
-    job = client.query(query, job_config=job_config)
-    return [dict(row.items()) for row in job.result()]
+    return _mcp_query(query.replace("@geo_id", _sql_string(geo_id)))
 
 def get_tract_access_state(geo_id: str) -> Dict[str, Any]:
     """Gets the operational access state (A, B, C, or D) for a census tract.
@@ -98,7 +190,6 @@ def get_tract_access_state(geo_id: str) -> Dict[str, Any]:
     Returns:
         Dictionary with access state classification and recommended action.
     """
-    client = _get_bq_client()
     query = f"""
     SELECT 
         geo_id,
@@ -113,11 +204,7 @@ def get_tract_access_state(geo_id: str) -> Dict[str, Any]:
     FROM `{PROJECT_ID}.{DATASET_ID}.lee_tract_access_state`
     WHERE geo_id = @geo_id
     """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[bigquery.ScalarQueryParameter("geo_id", "STRING", geo_id)]
-    )
-    job = client.query(query, job_config=job_config)
-    rows = [dict(row.items()) for row in job.result()]
+    rows = _mcp_query(query.replace("@geo_id", _sql_string(geo_id)))
     return rows[0] if rows else {"error": f"Tract {geo_id} not found."}
 
 def get_county_power_dependence() -> Dict[str, Any]:
@@ -129,7 +216,6 @@ def get_county_power_dependence() -> Dict[str, Any]:
     Returns:
         Dictionary with electricity-dependent counts for Lee County.
     """
-    client = _get_bq_client()
     query = f"""
     SELECT 
         county_name,
@@ -140,8 +226,7 @@ def get_county_power_dependence() -> Dict[str, Any]:
     FROM `{PROJECT_ID}.{DATASET_ID}.lee_county_power_dependence`
     WHERE fips_code = '12071'
     """
-    job = client.query(query)
-    rows = [dict(row.items()) for row in job.result()]
+    rows = _mcp_query(query)
     return rows[0] if rows else {"error": "Lee County power data not found."}
 
 def run_equity_audit() -> List[Dict[str, Any]]:
@@ -152,7 +237,6 @@ def run_equity_audit() -> List[Dict[str, Any]]:
     Returns:
         List of audit rows across top vulnerable tracts.
     """
-    client = _get_bq_client()
     query = f"""
     SELECT 
         geo_id,
@@ -167,13 +251,12 @@ def run_equity_audit() -> List[Dict[str, Any]]:
     ORDER BY stranded_score DESC
     LIMIT 10
     """
-    job = client.query(query)
-    return [dict(row.items()) for row in job.result()]
+    return _mcp_query(query)
 
 
 def find_outreach_candidates(
-    geo_id: str | None = None,
-    capabilities: List[str] | None = None,
+    geo_id=None,
+    capabilities=None,
     top_n: int = 10,
 ) -> List[Dict[str, Any]]:
     """Finds trusted Lee County organizations to contact about peer check-ins.
@@ -189,7 +272,6 @@ def find_outreach_candidates(
             disability_services, language_access, or volunteer_coordination.
         top_n: Maximum number of seed organizations to return.
     """
-    client = _get_bq_client()
     target_cte = f"""
     target AS (
       SELECT r.geo_id, r.lat, r.lon, r.stranded_score,
@@ -201,10 +283,10 @@ def find_outreach_candidates(
     )
     """
     capability_clause = ""
-    params = [bigquery.ScalarQueryParameter("geo_id", "STRING", geo_id)]
+    geo_literal = "NULL" if geo_id is None else _sql_string(geo_id)
     if capabilities:
-        capability_clause = "AND EXISTS (SELECT 1 FROM UNNEST(o.capability_tags) tag WHERE tag IN UNNEST(@capabilities))"
-        params.append(bigquery.ArrayQueryParameter("capabilities", "STRING", capabilities))
+        capability_values = ", ".join(_sql_string(tag) for tag in capabilities)
+        capability_clause = f"AND EXISTS (SELECT 1 FROM UNNEST(o.capability_tags) tag WHERE tag IN ({capability_values}))"
     query = f"""
     WITH {target_cte}
     SELECT
@@ -227,9 +309,8 @@ def find_outreach_candidates(
     ORDER BY o.seed_priority DESC
     LIMIT @top_n
     """
-    params.append(bigquery.ScalarQueryParameter("top_n", "INT64", top_n))
-    job = client.query(query, bigquery.QueryJobConfig(query_parameters=params))
-    return [dict(row.items()) for row in job.result()]
+    query = query.replace("@geo_id", geo_literal).replace("@top_n", str(_sql_int(top_n)))
+    return _mcp_query(query)
 
 
 def find_tract_by_coordinates(latitude: float, longitude: float) -> Dict[str, Any]:
@@ -244,7 +325,6 @@ def find_tract_by_coordinates(latitude: float, longitude: float) -> Dict[str, An
     Returns:
         Dict with geo_id, stranded_score, total_pop, demographics, tract coordinates, and distance_to_tract_centroid_m.
     """
-    client = _get_bq_client()
     query = f"""
     SELECT 
         geo_id,
@@ -262,12 +342,7 @@ def find_tract_by_coordinates(latitude: float, longitude: float) -> Dict[str, An
     ORDER BY distance_to_tract_centroid_m ASC
     LIMIT 1
     """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("lat", "FLOAT64", latitude),
-            bigquery.ScalarQueryParameter("lon", "FLOAT64", longitude),
-        ]
-    )
-    results = [dict(row) for row in client.query(query, job_config=job_config)]
+    query = query.replace("@lat", str(float(latitude))).replace("@lon", str(float(longitude)))
+    results = _mcp_query(query)
     return results[0] if results else {}
 
