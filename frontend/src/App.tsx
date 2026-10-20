@@ -6,11 +6,11 @@ import { MapView } from './components/MapView';
 import { ReadinessBrief } from './components/ReadinessBrief';
 import { CopilotBar } from './components/CopilotBar';
 import { MOCK_MIAMI_DADE_DATA, MOCK_LEE_COUNTY_DATA, CountyReadinessData, ShelterCandidate, VulnerableTract } from './mock/readinessData';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, X, Copy, Check } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [selectedCounty, setSelectedCounty] = useState('Miami-Dade County');
-  const [data, setData] = useState<CountyReadinessData>(MOCK_MIAMI_DADE_DATA);
+  const [selectedCounty, setSelectedCounty] = useState('Lee County');
+  const [data, setData] = useState<CountyReadinessData>(MOCK_LEE_COUNTY_DATA);
   const [liveMiamiDadeData, setLiveMiamiDadeData] = useState<CountyReadinessData | null>(null);
   const [liveLeeCountyData, setLiveLeeCountyData] = useState<CountyReadinessData | null>(null);
   const [dataSourceLabel, setDataSourceLabel] = useState<string>('Connecting to BigQuery Gold API...');
@@ -18,6 +18,7 @@ export const App: React.FC = () => {
   const [selectedShelter, setSelectedShelter] = useState<ShelterCandidate | undefined>(undefined);
   const [, setSelectedTract] = useState<VulnerableTract | undefined>(undefined);
   const [isQueryLoading, setIsQueryLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [agentResponseModal, setAgentResponseModal] = useState<{
     query: string;
     answer: string;
@@ -31,23 +32,40 @@ export const App: React.FC = () => {
   useEffect(() => {
     async function loadInitialData() {
       try {
-        const res = await fetch('/api/miami-dade/readiness');
+        const res = await fetch('/api/lee/readiness');
         if (res.ok) {
           const goldData = await res.json();
-          setLiveMiamiDadeData(goldData);
+          setLiveLeeCountyData(goldData);
           setData(goldData);
           setIsLive(true);
-          setDataSourceLabel('Live BigQuery Gold API (Miami-Dade FIPS 12086)');
+          setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
         } else {
-          setDataSourceLabel('Baseline Cache Active');
+          setDataSourceLabel('Baseline Cache Active (Lee County)');
         }
       } catch (err) {
         console.warn('Could not reach live readiness API, using baseline:', err);
-        setDataSourceLabel('Baseline Cache Active');
+        setDataSourceLabel('Baseline Cache Active (Lee County)');
       }
     }
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setAgentResponseModal(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleCopyResponse = () => {
+    if (!agentResponseModal?.answer) return;
+    navigator.clipboard.writeText(agentResponseModal.answer);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleSelectCounty = async (county: string) => {
     setSelectedCounty(county);
@@ -221,6 +239,8 @@ export const App: React.FC = () => {
             <button
               onClick={() => setAgentResponseModal(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white"
+              title="Close (Esc)"
+              aria-label="Close dialog"
             >
               <X className="w-5 h-5" />
             </button>
@@ -245,7 +265,26 @@ export const App: React.FC = () => {
               )}
             </div>
 
-            <h3 className="text-white font-bold text-sm mb-3">"{agentResponseModal.query}"</h3>
+            <div className="flex items-center justify-between mb-3 pr-8">
+              <h3 className="text-white font-bold text-sm truncate mr-2">"{agentResponseModal.query}"</h3>
+              <button
+                onClick={handleCopyResponse}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 hover:text-white rounded-lg border border-slate-700 transition-colors shrink-0"
+                title="Copy agent brief to clipboard"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-400">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Copy Brief</span>
+                  </>
+                )}
+              </button>
+            </div>
             <div className="overflow-y-auto pr-1 flex-1 mb-4">
               <p className="text-slate-200 text-xs leading-relaxed bg-slate-800/80 p-4 rounded-xl border border-slate-700/60 whitespace-pre-line">
                 {agentResponseModal.answer}

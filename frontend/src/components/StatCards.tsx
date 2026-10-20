@@ -42,7 +42,7 @@ export const StatCards: React.FC<StatCardsProps> = ({ summary }) => {
       {/* Evacuation Shelter Capacity */}
       <div className="bg-slate-800/60 border border-slate-700/60 rounded-lg p-3">
         <div className="flex items-center justify-between text-slate-400 text-xs">
-          <span>Available Shelter Capacity</span>
+          <span>Listed Shelter Capacity</span>
           <Users className="w-4 h-4 text-emerald-400" />
         </div>
         <div className="mt-1 flex items-baseline gap-2">
@@ -51,7 +51,7 @@ export const StatCards: React.FC<StatCardsProps> = ({ summary }) => {
           </span>
           <span className="text-[11px] text-emerald-400 font-medium">Spaces</span>
         </div>
-        <p className="text-[10px] text-slate-500 mt-1">FEMA NSS Pre-Landfall EVAC</p>
+        <p className="text-[10px] text-slate-500 mt-1">FEMA NSS Listed Pre-Landfall</p>
       </div>
 
       {/* Surge Zone Shelters */}
