@@ -98,7 +98,9 @@ SELECT
   LPAD(REGEXP_REPLACE(CAST(COALESCE(fips_code_recode, fips_code, CONCAT(state_fips_code, county_fips_code)) AS STRING), r'[^0-9]', ''), 5, '0') AS county_fips,
   ANY_VALUE(COALESCE(county, name, namelsad)) AS county_name,
   ANY_VALUE(state) AS state,
-  MAX(power_dependent_dme) AS power_dependent_dme,
+  MAX(COALESCE(power_dependent_devices_dme, power_dependent_dme)) AS power_dependent_dme,
+  MAX(facility_esrd_dialysis_any_dme) AS dialysis_dependent,
+  MAX(o2_services_any_dme) AS oxygen_dependent,
   MAX(any_healthcare_srvc_any_dme) AS healthcare_services_power_dependent,
   LOGICAL_OR(power_dependent_is_censored) AS is_censored
 FROM `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness.power_dependent_counties`
@@ -394,8 +396,8 @@ SELECT
   county_name,
   county_fips AS fips_code,
   power_dependent_dme AS power_dependent_residents,
-  CAST(NULL AS FLOAT64) AS dialysis_dependent,
-  CAST(NULL AS FLOAT64) AS oxygen_dependent,
+  dialysis_dependent,
+  oxygen_dependent,
   state,
   is_censored,
   CURRENT_TIMESTAMP() AS snapshot_at
