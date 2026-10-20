@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Send, Sparkles, Compass } from 'lucide-react';
+import { VoiceConversation } from './VoiceConversation';
 
 interface CopilotBarProps {
   onRunQuery: (query: string) => void;
@@ -71,6 +72,7 @@ export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery, selectedCoun
           <Send className="w-3.5 h-3.5" />
         </button>
       </form>
+      <VoiceConversation county={selectedCounty} />
     </div>
   );
 };

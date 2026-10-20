@@ -1,9 +1,11 @@
 """FastAPI bridge connecting frontend command center to Vertex AI Gemini and BigQuery."""
 import os
 import json
+import asyncio
+import base64
 from urllib.parse import quote_plus
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google.cloud import bigquery
@@ -96,17 +98,17 @@ def get_shelter_options(geo_id: Optional[str] = None, limit: int = 15):
 def get_county_readiness():
     try:
         client = bigquery.Client(project=PROJECT)
-        
+
         # 1. County Risk Snapshot
         overview_sql = f"SELECT * FROM `{PROJECT}.{DATASET}.miami_dade_county_risk_snapshot` LIMIT 1"
         overview_rows = [dict(r) for r in client.query(overview_sql).result()]
         ov = overview_rows[0] if overview_rows else {}
-        
+
         # 2. Priority Tracts with Coordinates
         tracts_sql = f"""
         SELECT m.geo_id, m.total_pop, m.households_no_vehicle, m.pct_households_no_vehicle,
                m.pct_mobility_limitation, m.pct_no_internet, m.mobility_proxy_score,
-               COALESCE(v.lat, 25.7617) as lat, 
+               COALESCE(v.lat, 25.7617) as lat,
                COALESCE(v.lon, -80.1918) as lon,
                COALESCE(v.pct_age_65_plus, 16.2) as pct_age_65_plus,
                COALESCE(v.mobile_homes, 0) as mobile_homes
@@ -117,7 +119,7 @@ def get_county_readiness():
         LIMIT 15
         """
         raw_tracts = [dict(r) for r in client.query(tracts_sql).result()]
-        
+
         formatted_tracts = []
         for t in raw_tracts:
             score = float(t.get("mobility_proxy_score") or 0)
@@ -134,7 +136,7 @@ def get_county_readiness():
                 "distanceToShelterKm": round(float(t.get("mobility_proxy_score") or 10) * 0.15, 1),
                 "riskTier": tier
             })
-            
+
         # 3. Candidate Shelters with Maps validation
         shelters_sql = f"""
         SELECT s.shelter_id, s.shelter_name, s.address_1, s.city, s.latitude, s.longitude,
@@ -149,7 +151,7 @@ def get_county_readiness():
         LIMIT 25
         """
         raw_shelters = [dict(r) for r in client.query(shelters_sql).result()]
-        
+
         formatted_shelters = []
         for s in raw_shelters:
             match_status = s.get("place_match_status")
@@ -158,7 +160,7 @@ def get_county_readiness():
             maps_uri = f"https://maps.google.com/?cid={pid}" if pid else "https://maps.google.com"
             wc_raw = str(s.get("wheelchair_accessible_status") or "").lower()
             wc_status = "YES" if wc_raw == "yes" else ("NO" if wc_raw == "no" else "UNRECORDED")
-            
+
             formatted_shelters.append({
                 "id": int(s.get("shelter_id")),
                 "name": str(s.get("shelter_name")),
@@ -176,7 +178,7 @@ def get_county_readiness():
                 "mapsPlaceId": pid,
                 "lastVerified": "2026-10-20"
             })
-            
+
         # 4. Computed Directives based on Gold Evidence
         directives = [
             {
@@ -238,22 +240,204 @@ def get_county_readiness():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+REASONING_ENGINE_ID = os.environ.get(
+    "REASONING_ENGINE_ID",
+    "projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272"
+)
+VOICE_MODEL = os.environ.get("VOICE_MODEL", "gemini-live-2.5-flash-native-audio")
+
+
+async def _ask_deployed_agent(query: str, user_id: str) -> str:
+    """Run one voice turn through the canonical deployed ADK Agent Engine."""
+    import vertexai
+    from vertexai import agent_engines
+
+    vertexai.init(project=PROJECT, location="us-east1")
+    engine = agent_engines.get(REASONING_ENGINE_ID)
+    events = []
+    async for event in engine.async_stream_query(message=query, user_id=user_id):
+        events.append(event)
+
+    chunks: List[str] = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        content = event.get("content") or {}
+        for part in content.get("parts", []):
+            if part.get("text"):
+                chunks.append(part["text"])
+    return "\n\n".join(chunks).strip() or "The readiness agent returned no text for that request."
+
+
+def _voice_tool() -> types.Tool:
+    """Expose one narrow bridge so Live never receives cloud credentials or raw SQL."""
+    return types.Tool(
+        function_declarations=[
+            types.FunctionDeclaration(
+                name="ask_readiness_agent",
+                description=(
+                    "Ask the canonical Lee County evacuation-readiness ADK agent a "
+                    "planning question. Use for risk, shelter, route, accessibility, "
+                    "medical, power, or outreach decisions."
+                ),
+                parameters_json_schema={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The complete planning question to answer.",
+                        }
+                    },
+                    "required": ["query"],
+                },
+            )
+        ]
+    )
+
+
+@app.websocket("/api/voice")
+async def voice_session(websocket: WebSocket):
+    """Bidirectional browser voice session backed by Gemini Live + ADK."""
+    await websocket.accept()
+    user_id = "coordinator_voice"
+    county = "Lee County, Florida"
+    geo_id = ""
+    live_client = genai.Client(vertexai=True, project=PROJECT, location="us-east1")
+
+    try:
+        start = await websocket.receive_json()
+        if start.get("type") != "start":
+            await websocket.send_json({"type": "error", "message": "Voice session must start with a start event."})
+            await websocket.close(code=1008)
+            return
+        user_id = start.get("userId") or user_id
+        county = start.get("county") or county
+        geo_id = start.get("geoId") or ""
+        context = f"Selected operational context: {county}."
+        if geo_id:
+            context += f" Selected tract: {geo_id}."
+
+        config = types.LiveConnectConfig(
+            response_modalities=["AUDIO"],
+            system_instruction=(
+                "You are the voice interface for a hurricane evacuation planning "
+                "coordinator. Keep responses concise and calm. For any operational "
+                "question, call ask_readiness_agent and faithfully summarize its answer. "
+                "Never invent shelter availability, medical acceptance, route times, "
+                "or outreach activation. Say 'unrecorded' rather than 'no' when data "
+                "is missing. Ask one clarification when needed. " + context
+            ),
+            tools=[_voice_tool()],
+            input_audio_transcription=types.AudioTranscriptionConfig(language_codes=["en-US"]),
+            output_audio_transcription=types.AudioTranscriptionConfig(language_codes=["en-US"]),
+        )
+
+        await websocket.send_json({"type": "session_started", "model": VOICE_MODEL, "county": county, "geoId": geo_id})
+        async with live_client.aio.live.connect(model=VOICE_MODEL, config=config) as live:
+            await _voice_client_loop(websocket, live, user_id)
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        print("Voice session error:", exc)
+        try:
+            await websocket.send_json({"type": "error", "message": "Voice session unavailable. Text chat remains available."})
+        except Exception:
+            pass
+
+
+async def _voice_client_loop(websocket: WebSocket, live: Any, user_id: str):
+    """Forward browser audio and Live server events in one cancellable loop."""
+    live_events = live.receive()
+    incoming = asyncio.create_task(websocket.receive_json())
+    outgoing = asyncio.create_task(live_events.__anext__())
+    try:
+        while True:
+            done, _ = await asyncio.wait({incoming, outgoing}, return_when=asyncio.FIRST_COMPLETED)
+            if incoming in done:
+                message = incoming.result()
+                kind = message.get("type")
+                if kind == "audio":
+                    await live.send_realtime_input(
+                        audio=types.Blob(
+                            data=base64.b64decode(message["data"]),
+                            mime_type=message.get("mimeType", "audio/pcm;rate=16000"),
+                        )
+                    )
+                elif kind == "audio_end":
+                    await live.send_realtime_input(audio_stream_end=True)
+                elif kind == "text":
+                    await live.send_realtime_input(text=message.get("text", ""))
+                elif kind == "interrupt":
+                    await websocket.send_json({"type": "interrupt"})
+                elif kind == "stop":
+                    return
+                incoming = asyncio.create_task(websocket.receive_json())
+
+            if outgoing in done:
+                try:
+                    response = outgoing.result()
+                except StopAsyncIteration:
+                    return
+                server_content = getattr(response, "server_content", None)
+                if server_content:
+                    input_tx = getattr(server_content, "input_transcription", None)
+                    output_tx = getattr(server_content, "output_transcription", None)
+                    if input_tx and getattr(input_tx, "text", None):
+                        await websocket.send_json({"type": "user_transcript", "text": input_tx.text})
+                    if output_tx and getattr(output_tx, "text", None):
+                        await websocket.send_json({"type": "agent_transcript", "text": output_tx.text})
+                    model_turn = getattr(server_content, "model_turn", None)
+                    for part in getattr(model_turn, "parts", []) if model_turn else []:
+                        inline = getattr(part, "inline_data", None)
+                        if inline and inline.data:
+                            audio = inline.data if isinstance(inline.data, bytes) else bytes(inline.data)
+                            await websocket.send_json({
+                                "type": "audio",
+                                "data": base64.b64encode(audio).decode("ascii"),
+                                "mimeType": inline.mime_type or "audio/pcm;rate=24000",
+                            })
+                    if getattr(server_content, "turn_complete", False):
+                        await websocket.send_json({"type": "agent_turn_complete"})
+
+                tool_call = getattr(response, "tool_call", None)
+                if tool_call:
+                    responses = []
+                    for function_call in tool_call.function_calls:
+                        if function_call.name != "ask_readiness_agent":
+                            continue
+                        query = (function_call.args or {}).get("query", "")
+                        await websocket.send_json({"type": "tool_started", "tool": "readiness_agent"})
+                        result = await _ask_deployed_agent(query, user_id)
+                        await websocket.send_json({"type": "tool_completed", "tool": "readiness_agent"})
+                        responses.append(
+                            types.FunctionResponse(
+                                id=function_call.id,
+                                name=function_call.name,
+                                response={"result": result},
+                            )
+                        )
+                    if responses:
+                        await live.send_tool_response(function_responses=responses)
+                outgoing = asyncio.create_task(live_events.__anext__())
+    finally:
+        incoming.cancel()
+        outgoing.cancel()
 @app.get("/api/lee/readiness")
 def get_lee_readiness():
     """Returns typed CountyReadinessData for Lee County directly querying teammate Hossein's BigQuery views."""
     try:
         client = bigquery.Client(project=PROJECT)
-        
+
         # 1. Overview counts from v_lee_tract_scores
         tract_scores_sql = f"""
-        SELECT 
+        SELECT
             COUNT(1) as total_tracts,
             SUM(households_no_vehicle) as total_carless,
             AVG(pct_no_vehicle) as avg_pct_no_vehicle
         FROM `evacuation_readiness.v_lee_tract_scores`
         """
         ov_res = [dict(r) for r in client.query(tract_scores_sql).result()][0]
-        
+
         # 2. Power dependent counts from power_dependent_counties
         power_sql = f"""
         SELECT power_dependent_devices_dme, facility_esrd_dialysis_any_dme, o2_services_any_dme
@@ -264,10 +448,10 @@ def get_lee_readiness():
         power_dme = power_rows[0].get("power_dependent_devices_dme", 8339) if power_rows else 8339
         dialysis = power_rows[0].get("facility_esrd_dialysis_any_dme", 801) if power_rows else 801
         oxygen = power_rows[0].get("o2_services_any_dme", 1850) if power_rows else 1850
-        
+
         # 3. Shelters from v_lee_shelters
         shelter_sql = f"""
-        SELECT 
+        SELECT
             shelter_id, shelter_name, address_1, city, zip, latitude, longitude,
             evacuation_capacity, wheelchair_record, surge_record
         FROM `evacuation_readiness.v_lee_shelters`
@@ -278,10 +462,10 @@ def get_lee_readiness():
         total_capacity = sum(int(s.get("evacuation_capacity") or 0) for s in shelter_rows)
         unrecorded_count = sum(1 for s in shelter_rows if str(s.get("wheelchair_record", "")).upper() == "UNRECORDED")
         unrec_rate = (unrecorded_count / len(shelter_rows) * 100.0) if shelter_rows else 93.1
-        
+
         # 4. Priority tracts from v_lee_tract_scores
         priority_tract_sql = f"""
-        SELECT 
+        SELECT
             geo_id, total_pop, households_no_vehicle, pct_no_vehicle,
             pct_age_65_plus, pct_disability, pct_mobile_homes, lat, lon, stranded_score
         FROM `evacuation_readiness.v_lee_tract_scores`
@@ -289,7 +473,7 @@ def get_lee_readiness():
         LIMIT 15
         """
         tract_rows = [dict(r) for r in client.query(priority_tract_sql).result()]
-        
+
         formatted_tracts = []
         for t in tract_rows:
             score = float(t.get("stranded_score") or 0.0)
@@ -306,7 +490,7 @@ def get_lee_readiness():
                 "distanceToShelterKm": 0.84 if str(t["geo_id"]) == "12071020801" else 1.75,
                 "riskTier": tier
             })
-            
+
         formatted_shelters = []
         for s in shelter_rows:
             sh_id = int(s["shelter_id"])
@@ -329,7 +513,7 @@ def get_lee_readiness():
                 "mapsPlaceId": f"LEE_{sh_id}",
                 "lastVerified": "2026-08-15"
             })
-            
+
         directives = [
             {
                 "id": "DIR-LEE-01",
@@ -359,7 +543,7 @@ def get_lee_readiness():
                 "recommendation": "Pre-register high-risk patients to Special Needs Shelters with dual backup generation."
             }
         ]
-        
+
         return {
             "county": "Lee County",
             "state": "FL",
@@ -388,16 +572,16 @@ def invoke_teammate_reasoning_engine(engine_id: str, message: str, user_id: str 
     import google.auth
     from google.auth.transport.requests import Request
     import requests
-    
+
     credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
     credentials.refresh(Request())
     token = credentials.token
-    
+
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
-    
+
     # 1. Create a session on the Reasoning Engine
     session_resp = requests.post(
         f"https://us-east1-aiplatform.googleapis.com/v1/{engine_id}:query",
@@ -410,7 +594,7 @@ def invoke_teammate_reasoning_engine(engine_id: str, message: str, user_id: str 
     sid = session_data.get("output", {}).get("id")
     if not sid:
         raise ValueError(f"No session ID returned by reasoning engine: {session_data}")
-        
+
     # 2. Stream query from the Reasoning Engine
     query_resp = requests.post(
         f"https://us-east1-aiplatform.googleapis.com/v1/{engine_id}:streamQuery",
@@ -427,7 +611,7 @@ def invoke_teammate_reasoning_engine(engine_id: str, message: str, user_id: str 
         timeout=60
     )
     query_resp.raise_for_status()
-    
+
     text_chunks = []
     for line in query_resp.iter_lines():
         if not line:
@@ -440,7 +624,7 @@ def invoke_teammate_reasoning_engine(engine_id: str, message: str, user_id: str 
                     text_chunks.append(p["text"])
         except Exception:
             pass
-            
+
     if not text_chunks:
         raise RuntimeError("Reasoning Engine returned empty text content.")
     return "".join(text_chunks)
@@ -457,7 +641,7 @@ def copilot_chat(req: QueryRequest):
 
     try:
         agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
-        
+
         if is_lee:
             sources = [
                 {
