@@ -6,7 +6,7 @@ import base64
 from urllib.parse import quote_plus
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google.cloud import bigquery
@@ -707,7 +707,6 @@ def copilot_chat(req: QueryRequest):
 
 # Serve the static shell with runtime configuration. Vite's import.meta.env values are
 # build-time only, while Cloud Run supplies the browser key as a runtime environment var.
-from fastapi.staticfiles import StaticFiles
 dist_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.exists(dist_dir):
     @app.get("/", response_class=HTMLResponse)
@@ -720,7 +719,13 @@ if os.path.exists(dist_dir):
         }).replace("</", "<\\/")
         return HTMLResponse(html.replace("</head>", f"<script>window.__APP_CONFIG__={runtime_config};</script></head>"))
 
-    app.mount("/", StaticFiles(directory=dist_dir, html=True), name="frontend")
+    @app.get("/{full_path:path}")
+    def frontend_files(full_path: str):
+        # Serve hashed assets directly and route client-side paths back to the shell.
+        requested_path = os.path.abspath(os.path.join(dist_dir, full_path))
+        if requested_path.startswith(os.path.abspath(dist_dir)) and os.path.isfile(requested_path):
+            return FileResponse(requested_path)
+        return frontend_index()
 
 if __name__ == "__main__":
     import uvicorn
