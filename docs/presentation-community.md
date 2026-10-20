@@ -34,14 +34,16 @@ Use a 6-slide HTML presentation:
 1. Human stake: “No one gets left behind” and the median age in the seventies
 2. The gap: scarce resources, non-self-evacuating households, incomplete shelter records
 3. The approach: risk zones become outreach hotspots and peer capacity
-4. The agent’s role: one brief connects risk, outreach, grounding, and action
-5. Limitations and workarounds: human validation, consent, voice support, routing, and redundancy
-6. Invitation: local partners help make Neighbor Lift real
+4. Grounding with Google Maps: data remembers the record, Maps sees the place, people close the last gap
+5. Neighbor Lift: the plan travels with a person, a destination, and a backup
+6. Invitation: county planners, community partners, volunteer networks, and residents each have a concrete role
 
-The tone should be warm, direct, and civic rather than dashboard-like. Use the existing repo visual language: deep plum, coral/pink, warm amber, pale lavender, and legible high-contrast typography. Keep copy sparse. Use simple visual markers for transport, accessibility, power, people, and community. Reserve full text for the speaker rather than the slide.
+The tone should be warm, direct, and civic rather than dashboard-like. The revised HTML borrows the supplied Google event deck's dark Google Cloud language: animated gradient mesh, restrained top bar, large typography, strong color accents, and small interactions that reveal the next layer of the story. It uses the existing community-hero image on the opening slide, then keeps the visual system consistent across all six slides.
+
+The interactive moments are purposeful: click a community-loop step to see the planner's next action; click the Maps limitation to reveal the volunteer fallback; click a partner role on the final slide to see the concrete invitation. App screens remain explicitly labeled placeholders for later replacement.
 
 ## Validation notes
 
-Render the HTML at desktop and mobile widths. The deck uses one full-viewport slide per snap position and supports wheel/trackpad scrolling, arrow keys, PageUp/PageDown, Space, and the on-screen controls. Check slide navigation, keyboard navigation, the progress indicator, and legibility of the data/statistics slide. Confirm that no slide claims public data identifies individual residents or that Maps proves accessibility.
+Render the HTML at desktop and mobile widths. The deck uses one full-viewport slide per snap position and supports wheel/trackpad scrolling, arrow keys, PageUp/PageDown, Space, and the on-screen controls. Check slide navigation, keyboard navigation, the progress indicator, the click-to-reveal workflow, the Maps fallback reveal, and the partner-role interaction. Confirm that no slide claims public data identifies individual residents or that Maps proves accessibility.
 
 The final resources slide uses current local entry points: Miami-Dade Emergency Management, Miami-Dade Citizen Corps/CERT, United Way Miami and its VOAD/211 role, Miami-Dade Community Resource Centers, Miami-Dade Parks and libraries, and local neighborhood/Facebook group administrators.
