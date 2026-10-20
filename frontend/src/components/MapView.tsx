@@ -128,7 +128,7 @@ export const MapView: React.FC<MapViewProps> = ({
 
       {/* Map Canvas */}
       <div ref={mapContainerRef} className="w-full h-full z-0" />
-      {mapError && <div className="absolute inset-0 z-[900] flex items-center justify-center bg-slate-950/92 p-6 text-center"><div className="max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"><div className="text-sm font-bold text-white">Google Maps layer unavailable</div><div className="mt-2 text-xs leading-5 text-slate-400">{mapError}</div><div className="mt-4 text-[10px] uppercase tracking-wider text-slate-500">The gold risk layer is ready; configure the Maps JavaScript API key to render it.</div></div></div>}
+      {mapError && !(window as any).google?.maps && <div className="absolute inset-0 z-[900] flex items-center justify-center bg-slate-950/92 p-6 text-center"><div className="max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"><div className="text-sm font-bold text-white">Google Maps layer unavailable</div><div className="mt-2 text-xs leading-5 text-slate-400">{mapError}</div><div className="mt-4 text-[10px] uppercase tracking-wider text-slate-500">The gold risk layer is ready; configure the Maps JavaScript API key to render it.</div></div></div>}
     </div>
   );
 };
