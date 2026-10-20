@@ -39,8 +39,8 @@ Use a light, warm, civic visual system rather than a dark product-dashboard them
 3. **Ask the agent, then act locally** — an automatically animated conversation types the risk question, reveals the answer, and steps through follow-up prompts for community groups, shelter unknowns, and medical needs.
 4. **The planner’s brief becomes a community brief** — county actions and local outreach workflow.
 5. **Use Maps for the place; use people for the unknown** — grounding, limitations, and human validation.
-6. **The plan travels with the person** — actual captured Neighbor Lift home and saved-plan screens plus CTA for county planners, hubs, volunteers, and residents.
+6. **The plan travels with the person** — actual Lee County command-center and Readiness Copilot captures, plus a CTA for county planners, hubs, volunteers, and residents.
 
 ## Validation notes
 
-Run the real HTML through a local server at desktop and mobile widths. Verify six snap slides, arrow/PageUp/PageDown/Space navigation, progress state, the automatic slide-3 typing/reveal/follow-up sequence, prompt buttons, role selection on slide 6, and the captured Neighbor Lift app screens on slide 6. Check that the deck consistently says **Lee County**, that the local names and numbers match the repo, and that no slide treats public data as individual identification or Maps as proof of shelter accessibility.
+Run the real HTML through a local server at desktop and mobile widths. Verify six snap slides, arrow/PageUp/PageDown/Space navigation, progress state, the automatic slide-3 typing/reveal/follow-up sequence, prompt buttons, role selection on slide 6, and the captured Lee County command-center / Readiness Copilot screens on slides 5–6. Check that the deck consistently says **Lee County**, that the local names and numbers match the repo, and that no slide treats public data as individual identification or Maps as proof of shelter accessibility.
