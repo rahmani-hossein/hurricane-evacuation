@@ -1,0 +1,60 @@
+import React from 'react';
+import { ShieldAlert, Compass, MapPin, Database } from 'lucide-react';
+
+interface NavbarProps {
+  selectedCounty: string;
+  onSelectCounty: (county: string) => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ selectedCounty, onSelectCounty }) => {
+  return (
+    <header className="bg-slate-900 border-b border-slate-800 text-white px-6 py-3 flex flex-wrap items-center justify-between gap-4 select-none shrink-0">
+      <div className="flex items-center space-x-3">
+        <div className="bg-red-500/20 border border-red-500/50 p-2 rounded-lg text-red-400">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="font-bold text-lg tracking-tight text-white">Florida Adaptive Evacuation Readiness</h1>
+            <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-0.5 rounded font-mono border border-blue-500/30">
+              August Pre-Season
+            </span>
+          </div>
+          <p className="text-xs text-slate-400">
+            County Emergency Management Preparedness Copilot • Planning Horizon: 3 Weeks Pre-Landfall
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        {/* County Selector */}
+        <div className="flex items-center space-x-2 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-1.5">
+          <MapPin className="w-4 h-4 text-emerald-400" />
+          <span className="text-xs text-slate-400">Target Area:</span>
+          <select 
+            value={selectedCounty}
+            onChange={(e) => onSelectCounty(e.target.value)}
+            className="bg-transparent text-sm font-semibold text-white focus:outline-none cursor-pointer"
+          >
+            <option value="Lee County" className="bg-slate-800 text-white">Lee County, FL (Ian Zone)</option>
+            <option value="Pinellas County" className="bg-slate-800 text-white">Pinellas County, FL</option>
+            <option value="Hillsborough County" className="bg-slate-800 text-white">Hillsborough County, FL</option>
+            <option value="Miami-Dade County" className="bg-slate-800 text-white">Miami-Dade County, FL</option>
+          </select>
+        </div>
+
+        {/* Engine indicators */}
+        <div className="hidden lg:flex items-center space-x-3 text-xs text-slate-400 border-l border-slate-800 pl-4">
+          <span className="inline-flex items-center gap-1">
+            <Database className="w-3.5 h-3.5 text-blue-400" />
+            BigQuery <code className="text-slate-300 font-mono">evacuation_readiness</code>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Compass className="w-3.5 h-3.5 text-emerald-400" />
+            Vertex AI <span translate="no" className="font-semibold text-slate-200">Google Maps Grounding</span>
+          </span>
+        </div>
+      </div>
+    </header>
+  );
+};
