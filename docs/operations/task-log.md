@@ -38,6 +38,7 @@ This file is append-only. Add new entries at the bottom; do not rewrite prior en
   scope because the lab did not allow dataset-level IAM bindings.
 - Hosted smoke test passed: the agent returned 109 Miami-Dade EVAC/BOTH shelter candidates and
   105,407 listed evacuation capacity.
+- Opened follow-up deployment PR #3 for the repository deployment scaffolding.
 - Confirmed raw Miami-Dade shelter counts: 138 distinct shelter records; 113 EVAC/BOTH records; 109 EVAC/BOTH records with positive evacuation capacity and therefore in the current gold candidate set.
 - Smoke-tested an ADK agent with `google_maps_grounding` against Gemini 3.6 Flash and Gemini 2.5 Flash. Both failed before tool execution with Vertex AI `aiplatform.endpoints.predict` permission denied; no Maps batch was run.
 - Retried after the Cloud Shell IAM grant. The student account now visibly has `roles/aiplatform.user`, but the local ADK process still receives the same 403, indicating its Application Default Credentials are not the Cloud Shell/student identity or the lab model endpoint is separately restricted.
