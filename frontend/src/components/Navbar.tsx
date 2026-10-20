@@ -37,20 +37,12 @@ export const Navbar: React.FC<NavbarProps> = ({ selectedCounty, onSelectCounty, 
       </div>
 
       <div className="flex items-center gap-4">
-        {/* County Selector */}
-        <div className="flex items-center space-x-2 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-1.5">
+        {/* Target County Scope: Lee County Only */}
+        <div className="flex items-center space-x-2 bg-slate-800/90 border border-emerald-500/40 rounded-lg px-3 py-1.5 shadow-sm">
           <MapPin className="w-4 h-4 text-emerald-400" />
-          <span className="text-xs text-slate-400">Target Area:</span>
-          <select 
-            value={selectedCounty}
-            onChange={(e) => onSelectCounty(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-white focus:outline-none cursor-pointer"
-          >
-            <option value="Lee County" className="bg-slate-800 text-white">Lee County, FL (Ian Zone)</option>
-            <option value="Pinellas County" className="bg-slate-800 text-white">Pinellas County, FL</option>
-            <option value="Hillsborough County" className="bg-slate-800 text-white">Hillsborough County, FL</option>
-            <option value="Miami-Dade County" className="bg-slate-800 text-white">Miami-Dade County, FL</option>
-          </select>
+          <span className="text-xs text-slate-400">Scope:</span>
+          <span className="text-sm font-semibold text-white">Lee County, FL</span>
+          <span className="text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800/80 px-1.5 py-0.5 rounded font-bold">FIPS 12071</span>
         </div>
 
         {/* Engine indicators */}

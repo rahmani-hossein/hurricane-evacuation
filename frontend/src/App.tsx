@@ -67,57 +67,30 @@ export const App: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSelectCounty = async (county: string) => {
-    setSelectedCounty(county);
-    if (county.includes('Lee')) {
-      if (liveLeeCountyData) {
-        setData(liveLeeCountyData);
-        setIsLive(true);
-        setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
-      } else {
-        try {
-          const res = await fetch('/api/lee/readiness');
-          if (res.ok) {
-            const leeData = await res.json();
-            setLiveLeeCountyData(leeData);
-            setData(leeData);
-            setIsLive(true);
-            setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
-          } else {
-            setData(MOCK_LEE_COUNTY_DATA);
-            setIsLive(false);
-            setDataSourceLabel('Offline Demo Cache (Lee County)');
-          }
-        } catch {
+  const handleSelectCounty = async (_county?: string) => {
+    setSelectedCounty('Lee County');
+    if (liveLeeCountyData) {
+      setData(liveLeeCountyData);
+      setIsLive(true);
+      setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
+    } else {
+      try {
+        const res = await fetch('/api/lee/readiness');
+        if (res.ok) {
+          const leeData = await res.json();
+          setLiveLeeCountyData(leeData);
+          setData(leeData);
+          setIsLive(true);
+          setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
+        } else {
           setData(MOCK_LEE_COUNTY_DATA);
           setIsLive(false);
           setDataSourceLabel('Offline Demo Cache (Lee County)');
         }
-      }
-    } else {
-      if (liveMiamiDadeData) {
-        setData(liveMiamiDadeData);
-        setIsLive(true);
-        setDataSourceLabel('Live BigQuery Gold API (Miami-Dade FIPS 12086)');
-      } else {
-        try {
-          const res = await fetch('/api/miami-dade/readiness');
-          if (res.ok) {
-            const miamiData = await res.json();
-            setLiveMiamiDadeData(miamiData);
-            setData(miamiData);
-            setIsLive(true);
-            setDataSourceLabel('Live BigQuery Gold API (Miami-Dade FIPS 12086)');
-          } else {
-            setData(MOCK_MIAMI_DADE_DATA);
-            setIsLive(false);
-            setDataSourceLabel('Baseline Cache Active');
-          }
-        } catch {
-          setData(MOCK_MIAMI_DADE_DATA);
-          setIsLive(false);
-          setDataSourceLabel('Baseline Cache Active');
-        }
+      } catch {
+        setData(MOCK_LEE_COUNTY_DATA);
+        setIsLive(false);
+        setDataSourceLabel('Offline Demo Cache (Lee County)');
       }
     }
   };
@@ -150,30 +123,33 @@ export const App: React.FC = () => {
       setIsQueryLoading(false);
     }
 
-    // Client-side fallback if server offline
+    // Client-side fallback if server offline (Lee County Scope)
     if (query.toLowerCase().includes('surge')) {
       setAgentResponseModal({
         query,
-        answer: "FEMA NRI and SLOSH analysis confirm all candidate EVAC shelters in Miami-Dade are located outside Category 2 surge zones. In Lee County, 3 shelters are flagged in coastal flood zones.",
+        answer: "FEMA NRI and SLOSH analysis confirm candidate EVAC shelters in Lee County are evaluated against coastal surge. Barrier island shelters subject to Category 2+ storm surge are excluded from pre-landfall designations.",
         sources: [
-          { title: "Robert C. Morgan High School", uri: "https://maps.google.com/?cid=ChIJt2Ah773D2YgRXrgXnbOxtbI" }
-        ]
+          { title: "Estero Recreation Center", uri: "https://maps.google.com/?q=9200+Corkscrew+Palms+Blvd,+Estero,+FL+33928" }
+        ],
+        county: "Lee County"
       });
-    } else if (query.toLowerCase().includes('paratransit') || query.toLowerCase().includes('vehicle')) {
+    } else if (query.toLowerCase().includes('paratransit') || query.toLowerCase().includes('vehicle') || query.toLowerCase().includes('stranded')) {
       setAgentResponseModal({
         query,
-        answer: "Tract 9807.00 (Homestead) has 65.6% zero-vehicle households and is 7.3 straight-line miles from Robert C. Morgan High. Scheduled pre-landfall paratransit depots are required.",
+        answer: "In Lee County, priority census tract 12071020801 has 22.6% zero-vehicle households and a 0.955 Stranded Score. A 2.0 km micro-transit and paratransit threshold is active to bridge the mobility gap.",
         sources: [
-          { title: "Robert C. Morgan High School", uri: "https://maps.google.com/?cid=ChIJt2Ah773D2YgRXrgXnbOxtbI" }
-        ]
+          { title: "Littleton Elementary School", uri: "https://maps.google.com/?q=700+Hutto+Rd,+North+Fort+Myers,+FL+33903" }
+        ],
+        county: "Lee County"
       });
     } else {
       setAgentResponseModal({
         query,
-        answer: "In Miami-Dade County, 95.4% (104 of 109) candidate shelters have unrecorded wheelchair accessibility. The agent designates these as unrecorded rather than inaccessible to avoid false negatives.",
+        answer: "In Lee County, FL (FIPS 12071), 93.3% of candidate emergency shelters have unrecorded wheelchair accessibility in FEMA NSS baseline files. The agent enforces 'State B: Verify-First' inspections to eliminate blind spots before landfall.",
         sources: [
-          { title: "Miami Southridge High School", uri: "https://maps.google.com/?cid=ChIJgaqKh4PD2YgRDwc62Qyh5jc" }
-        ]
+          { title: "Estero Recreation Center", uri: "https://maps.google.com/?q=9200+Corkscrew+Palms+Blvd,+Estero,+FL+33928" }
+        ],
+        county: "Lee County"
       });
     }
   };

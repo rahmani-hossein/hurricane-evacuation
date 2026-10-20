@@ -38,7 +38,7 @@ except Exception as e:
 
 class QueryRequest(BaseModel):
     query: str
-    county: Optional[str] = "Miami-Dade County"
+    county: Optional[str] = "Lee County"
 
 @app.get("/api/health")
 def health():
