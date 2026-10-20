@@ -45,3 +45,10 @@ This file is append-only. Add new entries at the bottom; do not rewrite prior en
 - ADC was re-authenticated locally with the hackathon project quota. Maps grounding smoke test succeeded for Dr. Michael M. Krop Senior High School and returned a Google Maps place ID.
 - Added `agent/batch_maps_validation.py`; a 5-row smoke batch wrote 5 `confirmed_match` records.
 - Completed the remaining 104 Miami-Dade candidate validations. Final result: 109 total, 104 `confirmed_match`, 5 `address_mismatch`, 0 API errors.
+- Discovered `feature/agent-and-views`, the separate Lee County ADK agent build with State A/B/C/D access logic, equity auditing, medical power planning, and Maps Grounding.
+- Chose Lee County as the single canonical hackathon county because this agent already had end-to-end live tests and a stronger operational decision contract.
+- Added Lee County gold views to `sql/build_stg_gold.sql`: `lee_tract_risk`, `lee_shelter_readiness`, `lee_tract_shelter_options`, `lee_tract_access_state`, `lee_equity_audit`, and `lee_county_power_dependence`.
+- Rebuilt the staging/gold script successfully in BigQuery. Lee gold contains 221 tracts, 82 eligible shelter records, 8,794 tract-shelter options, and State A/B/D classifications.
+- Migrated `agent/tools.py` from raw `evacuation_readiness` views to `evacuation_readiness_gold` Lee views. Tool suite result: 5/5 passed.
+- Deployed canonical Lee County Agent Runtime resource: `projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104`.
+- Remote Agent Runtime smoke tests passed for top stranded tracts/access states and named-shelter Google Maps verification.
