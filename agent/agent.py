@@ -17,6 +17,7 @@ from google.adk import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools import google_maps_grounding
+from google.adk.tools import google_search
 from google.genai import types
 
 from agent.prompts import SYSTEM_INSTRUCTION
@@ -26,6 +27,7 @@ from agent.tools import (
     get_tract_access_state,
     rank_stranded_tracts,
     run_equity_audit,
+    find_outreach_candidates,
 )
 
 MODEL_NAME = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
@@ -42,7 +44,9 @@ def create_evacuation_agent() -> Agent:
             get_tract_access_state,
             get_county_power_dependence,
             run_equity_audit,
+            find_outreach_candidates,
             google_maps_grounding,
+            google_search,
         ],
     )
 

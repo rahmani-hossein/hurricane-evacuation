@@ -259,6 +259,90 @@ JOIN `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.miami_dade_tract_mo
 WHERE r.county_fips = '12086'
 GROUP BY ALL;
 
+-- Lee County outreach seed. These are public, countywide coordination leads used to start
+-- discovery; they are not a roster of activated volunteers or a guarantee of availability.
+CREATE OR REPLACE TABLE `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_outreach_organizations` AS
+SELECT * FROM UNNEST([
+  STRUCT(
+    'lee-em-volunteers' AS org_id,
+    'Lee County Emergency Management Volunteers' AS name,
+    'government_volunteer_coordinator' AS organization_type,
+    ['volunteer_coordination', 'emergency_management'] AS capability_tags,
+    'Lee County, Florida' AS service_area,
+    CAST(NULL AS STRING) AS public_phone,
+    'https://www.leegov.com/publicsafety/emergencymanagement/volunteers' AS contact_url,
+    'https://www.leegov.com/publicsafety/emergencymanagement/volunteers' AS source_url,
+    'lee_county_official' AS source_type,
+    'curated_seed' AS verification_status,
+    100 AS seed_priority
+  ),
+  STRUCT(
+    'lee-cert-cape-coral' AS org_id,
+    'Cape Coral CERT' AS name,
+    'community_emergency_response_team' AS organization_type,
+    ['CERT', 'peer_checkins', 'preparedness', 'basic_emergency_support'] AS capability_tags,
+    'Cape Coral, Lee County, Florida' AS service_area,
+    CAST(NULL AS STRING) AS public_phone,
+    'https://www.leegov.com/publicsafety/emergencymanagement/volunteers' AS contact_url,
+    'https://www.leegov.com/publicsafety/emergencymanagement/volunteers' AS source_url,
+    'lee_county_official' AS source_type,
+    'curated_seed' AS verification_status,
+    95 AS seed_priority
+  ),
+  STRUCT(
+    'lee-cert-north-fort-myers' AS org_id,
+    'North Fort Myers CERT' AS name,
+    'community_emergency_response_team' AS organization_type,
+    ['CERT', 'peer_checkins', 'preparedness', 'basic_emergency_support'] AS capability_tags,
+    'North Fort Myers, Lee County, Florida' AS service_area,
+    CAST(NULL AS STRING) AS public_phone,
+    'https://www.leegov.com/publicsafety/emergencymanagement/volunteers' AS contact_url,
+    'https://www.leegov.com/publicsafety/emergencymanagement/volunteers' AS source_url,
+    'lee_county_official' AS source_type,
+    'curated_seed' AS verification_status,
+    94 AS seed_priority
+  ),
+  STRUCT(
+    'lee-cert-pine-island' AS org_id,
+    'Pine Island CERT' AS name,
+    'community_emergency_response_team' AS organization_type,
+    ['CERT', 'peer_checkins', 'preparedness', 'basic_emergency_support'] AS capability_tags,
+    'Pine Island, Lee County, Florida' AS service_area,
+    CAST(NULL AS STRING) AS public_phone,
+    'https://www.leegov.com/publicsafety/emergencymanagement/volunteers' AS contact_url,
+    'https://www.leegov.com/publicsafety/emergencymanagement/volunteers' AS source_url,
+    'lee_county_official' AS source_type,
+    'curated_seed' AS verification_status,
+    94 AS seed_priority
+  ),
+  STRUCT(
+    'lee-ares-races' AS org_id,
+    'Lee County ARES/RACES' AS name,
+    'emergency_communications' AS organization_type,
+    ['ARES', 'RACES', 'emergency_communications', 'radio_relay'] AS capability_tags,
+    'Lee County, Florida' AS service_area,
+    CAST(NULL AS STRING) AS public_phone,
+    'https://www.leegov.com/publicsafety/emergencymanagement/volunteers' AS contact_url,
+    'https://www.leegov.com/publicsafety/emergencymanagement/volunteers' AS source_url,
+    'lee_county_official' AS source_type,
+    'curated_seed' AS verification_status,
+    90 AS seed_priority
+  ),
+  STRUCT(
+    'united-way-lee' AS org_id,
+    'United Way of Lee, Hendry and Glades' AS name,
+    'volunteer_reception_and_donations' AS organization_type,
+    ['volunteer_coordination', 'volunteer_reception', 'donations', 'community_outreach'] AS capability_tags,
+    'Lee, Hendry and Glades Counties, Florida' AS service_area,
+    '239-433-3900' AS public_phone,
+    'https://volunteer.unitedwaylee.org' AS contact_url,
+    'https://www.leegov.com/hurricane/storm/donate' AS source_url,
+    'lee_county_official_partner' AS source_type,
+    'curated_seed' AS verification_status,
+    98 AS seed_priority
+  )
+]);
+
 -- Lee County operational agent products.
 -- These gold views preserve the feature/agent-and-views logic while keeping raw
 -- source tables behind the staging and gold boundary. Percent fields use the
