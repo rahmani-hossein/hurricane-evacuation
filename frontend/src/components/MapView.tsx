@@ -45,6 +45,7 @@ export const MapView: React.FC<MapViewProps> = ({
     if (!mapContainerRef.current) return;
     if (!apiKey) { setMapError('Add VITE_GOOGLE_MAPS_API_KEY to frontend/.env.local to render the live map.'); return; }
     if (!mapsReady || !(window as any).google?.maps) { setMapError(apiKey ? 'Loading Google Maps…' : null); return; }
+    setMapError(null);
 
     const googleMaps = (window as any).google.maps;
     if (!mapInstanceRef.current) {
