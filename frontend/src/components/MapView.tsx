@@ -47,6 +47,12 @@ export const MapView: React.FC<MapViewProps> = ({
 
     markersGroup.clearLayers();
 
+    // Dynamically re-center map to the current jurisdiction
+    if (data.shelters.length > 0) {
+      const bounds = L.latLngBounds(data.shelters.map(s => [s.lat, s.lon] as [number, number]));
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+    }
+
     // 1. Draw connection polylines from critical tracts to inland shelters
     data.tracts.forEach(tract => {
       // Find nearest shelter

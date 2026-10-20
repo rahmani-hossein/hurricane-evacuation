@@ -56,6 +56,186 @@ export interface CountyReadinessData {
   directives: ActionDirective[];
 }
 
+export const MOCK_MIAMI_DADE_DATA: CountyReadinessData = {
+  county: "Miami-Dade County",
+  state: "FL",
+  seasonMonth: "August 2026",
+  summary: {
+    totalCarlessHouseholds: 90752,
+    powerDependentResidents: 20838,
+    totalShelterCapacity: 105407,
+    unrecordedAccessibilityPct: 95.4,
+    surgeExposedSheltersCount: 0,
+    medicalSheltersCount: 14
+  },
+  tracts: [
+    {
+      id: "12086980700",
+      name: "Tract 9807.00 (Homestead Agricultural Basin)",
+      householdsNoVehicle: 1420,
+      pctNoVehicle: 65.6,
+      pctAge65Plus: 21.4,
+      mobileHomes: 820,
+      lat: 25.4680,
+      lon: -80.4770,
+      distanceToShelterKm: 6.9,
+      riskTier: "CRITICAL"
+    },
+    {
+      id: "12086005302",
+      name: "Tract 53.02 (East Little Havana Corridor)",
+      householdsNoVehicle: 2150,
+      pctNoVehicle: 48.2,
+      pctAge65Plus: 29.8,
+      mobileHomes: 12,
+      lat: 25.7720,
+      lon: -80.2140,
+      distanceToShelterKm: 3.2,
+      riskTier: "CRITICAL"
+    },
+    {
+      id: "12086002100",
+      name: "Tract 21.00 (Overtown Transit Core)",
+      householdsNoVehicle: 1840,
+      pctNoVehicle: 52.4,
+      pctAge65Plus: 24.1,
+      mobileHomes: 0,
+      lat: 25.7890,
+      lon: -80.2010,
+      distanceToShelterKm: 2.8,
+      riskTier: "CRITICAL"
+    },
+    {
+      id: "12086001901",
+      name: "Tract 19.01 (Liberty City / Model City)",
+      householdsNoVehicle: 1610,
+      pctNoVehicle: 41.5,
+      pctAge65Plus: 18.9,
+      mobileHomes: 35,
+      lat: 25.8240,
+      lon: -80.2230,
+      distanceToShelterKm: 4.1,
+      riskTier: "HIGH"
+    }
+  ],
+  shelters: [
+    {
+      id: 133885,
+      name: "Robert C. Morgan High School",
+      address: "18180 SW 122ND AVE, Miami, FL 33177",
+      lat: 25.5993,
+      lon: -80.3891,
+      capacity: 3563,
+      wheelchairStatus: "YES",
+      generatorOnsite: true,
+      inSurgeZone: false,
+      isMedical: true,
+      usage: "EVAC",
+      groundingStatus: "Verified Active",
+      mapsPlaceUri: "https://maps.google.com/?cid=ChIJt2Ah773D2YgRXrgXnbOxtbI",
+      mapsPlaceId: "ChIJt2Ah773D2YgRXrgXnbOxtbI",
+      lastVerified: "Confirmed Match (Batch Validated)"
+    },
+    {
+      id: 135070,
+      name: "Miami Southridge High School",
+      address: "19355 SW 114TH AVE, Miami, FL 33157",
+      lat: 25.5870,
+      lon: -80.3767,
+      capacity: 850,
+      wheelchairStatus: "UNRECORDED",
+      generatorOnsite: false,
+      inSurgeZone: false,
+      isMedical: false,
+      usage: "EVAC",
+      groundingStatus: "Verified Active",
+      mapsPlaceUri: "https://maps.google.com/?cid=ChIJgaqKh4PD2YgRDwc62Qyh5jc",
+      mapsPlaceId: "ChIJgaqKh4PD2YgRDwc62Qyh5jc",
+      lastVerified: "Confirmed Match (Batch Validated)"
+    },
+    {
+      id: 346701,
+      name: "South Dade Middle School",
+      address: "29100 SW 194 Avenue, Homestead, FL 33030",
+      lat: 25.4962,
+      lon: -80.5060,
+      capacity: 592,
+      wheelchairStatus: "UNRECORDED",
+      generatorOnsite: false,
+      inSurgeZone: false,
+      isMedical: false,
+      usage: "EVAC",
+      groundingStatus: "Verified Active",
+      mapsPlaceUri: "https://maps.google.com/?cid=ChIJ05VPfPjm2YgRowMsIrEudZg",
+      mapsPlaceId: "ChIJ05VPfPjm2YgRowMsIrEudZg",
+      lastVerified: "Confirmed Match (Batch Validated)"
+    },
+    {
+      id: 346697,
+      name: "Redland Middle School",
+      address: "16001 SW 248th ST, Redland, FL 33031",
+      lat: 25.5362,
+      lon: -80.4517,
+      capacity: 333,
+      wheelchairStatus: "UNRECORDED",
+      generatorOnsite: false,
+      inSurgeZone: false,
+      isMedical: false,
+      usage: "EVAC",
+      groundingStatus: "Verified Active",
+      mapsPlaceUri: "https://maps.google.com/?cid=ChIJSSMJp1Xd2YgRqM2wrJ8jtd4",
+      mapsPlaceId: "ChIJSSMJp1Xd2YgRqM2wrJ8jtd4",
+      lastVerified: "Confirmed Match (Batch Validated)"
+    },
+    {
+      id: 364881,
+      name: "South Dade Senior High",
+      address: "28401 SW 167 Avenue, Homestead, FL 33030",
+      lat: 25.5014,
+      lon: -80.4596,
+      capacity: 120,
+      wheelchairStatus: "UNRECORDED",
+      generatorOnsite: false,
+      inSurgeZone: false,
+      isMedical: false,
+      usage: "EVAC",
+      groundingStatus: "Verified Active",
+      mapsPlaceUri: "https://maps.google.com/?cid=ChIJtxyoyHfn2YgRoyTSeTVHqN0",
+      mapsPlaceId: "ChIJtxyoyHfn2YgRoyTSeTVHqN0",
+      lastVerified: "Confirmed Match (Batch Validated)"
+    }
+  ],
+  directives: [
+    {
+      id: "MIA-01",
+      category: "TRANSIT_GAP",
+      severity: "URGENT",
+      title: "Stage Pre-Landfall Paratransit at Homestead Agricultural Corridor",
+      tractOrShelter: "Tract 9807.00 (Homestead Basin)",
+      rationale: "ACS mobility proxy reveals 65.6% zero-vehicle households and 820 mobile homes located 6.9 km straight-line from Robert C. Morgan High.",
+      recommendation: "Pre-position 12 Miami-Dade Transit buses at Homestead Sports Complex for scheduled shuttle rotations 48h prior to landfall."
+    },
+    {
+      id: "MIA-02",
+      category: "ACCESSIBILITY_AUDIT",
+      severity: "URGENT",
+      title: "Dispatch Field Inspection Teams to Verify 104 Unassessed Shelters",
+      tractOrShelter: "Miami-Dade EVAC Registry",
+      rationale: "95.4% (104 of 109) candidate shelters have unrecorded wheelchair data at source. Only 4 shelters have confirmed accessibility.",
+      recommendation: "Deploy Building Department inspectors to audit ADA curb cuts and elevators at top 20 capacity sites before August 25."
+    },
+    {
+      id: "MIA-03",
+      category: "POWER_DEPENDENCY",
+      severity: "HIGH",
+      title: "Establish Generator Triage for 20,838 Electricity-Dependent Residents",
+      tractOrShelter: "Countywide HHS emPOWER Registry",
+      rationale: "Over 20,000 residents rely on electricity-dependent medical equipment (DME), yet only 14 shelters carry medical/generator designations.",
+      recommendation: "Partner with Florida Power & Light (FPL) and Jackson Health System for prioritized microgrid backup at regional hubs."
+    }
+  ]
+};
+
 export const MOCK_LEE_COUNTY_DATA: CountyReadinessData = {
   county: "Lee County",
   state: "FL",

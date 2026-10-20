@@ -5,12 +5,12 @@ import { StatCards } from './components/StatCards';
 import { MapView } from './components/MapView';
 import { ReadinessBrief } from './components/ReadinessBrief';
 import { CopilotBar } from './components/CopilotBar';
-import { MOCK_LEE_COUNTY_DATA, ShelterCandidate, VulnerableTract } from './mock/readinessData';
+import { MOCK_MIAMI_DADE_DATA, MOCK_LEE_COUNTY_DATA, ShelterCandidate, VulnerableTract } from './mock/readinessData';
 import { CheckCircle2, X } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [selectedCounty, setSelectedCounty] = useState('Lee County');
-  const [data] = useState(MOCK_LEE_COUNTY_DATA);
+  const [selectedCounty, setSelectedCounty] = useState('Miami-Dade County');
+  const [data, setData] = useState(MOCK_MIAMI_DADE_DATA);
   const [selectedShelter, setSelectedShelter] = useState<ShelterCandidate | undefined>(undefined);
   const [, setSelectedTract] = useState<VulnerableTract | undefined>(undefined);
   const [agentResponseModal, setAgentResponseModal] = useState<{
@@ -18,6 +18,15 @@ export const App: React.FC = () => {
     answer: string;
     sources: Array<{ title: string; uri: string }>;
   } | null>(null);
+
+  const handleSelectCounty = (county: string) => {
+    setSelectedCounty(county);
+    if (county.includes('Lee')) {
+      setData(MOCK_LEE_COUNTY_DATA);
+    } else {
+      setData(MOCK_MIAMI_DADE_DATA);
+    }
+  };
 
   const handleRunQuery = (query: string) => {
     // Realistic agent response simulation with Maps grounding attribution
@@ -52,7 +61,7 @@ export const App: React.FC = () => {
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-950 font-sans">
       {/* 1. Header Navigation */}
-      <Navbar selectedCounty={selectedCounty} onSelectCounty={setSelectedCounty} />
+      <Navbar selectedCounty={selectedCounty} onSelectCounty={handleSelectCounty} />
 
       {/* 2. Critical Data Integrity Notice ("Unrecorded != No") */}
       <DataIntegrityAlert unrecordedPct={data.summary.unrecordedAccessibilityPct} />
