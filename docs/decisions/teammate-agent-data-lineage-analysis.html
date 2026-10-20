@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teammate Agent Data Lineage Analysis</title>
+  <style>
+    :root{--ink:#172033;--muted:#5d6b82;--line:#dbe3ef;--bg:#f6f8fc;--card:#fff;--blue:#175cd3;--green:#087443;--amber:#a15c00;--red:#b42318}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    main{max-width:1100px;margin:0 auto;padding:48px 28px 72px}.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:800}h1{font-size:42px;line-height:1.08;margin:10px 0 12px;max-width:800px}h2{font-size:22px;margin:34px 0 12px}p{max-width:850px}.lede{font-size:19px;color:var(--muted);max-width:780px}.meta{color:var(--muted);font-size:13px}.hero{background:linear-gradient(135deg,#eef5ff,#fff);border:1px solid #d5e3f8;border-radius:24px;padding:30px;box-shadow:0 14px 40px #17396d12}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:22px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}.card strong{display:block;font-size:25px}.pass{color:var(--green)}.warn{color:var(--amber)}.fail{color:var(--red)}table{border-collapse:collapse;width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top}th{background:#f0f4fa;font-size:12px;text-transform:uppercase;letter-spacing:.05em}tr:last-child td{border-bottom:0}.pill{display:inline-block;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:700}.pill.live{background:#e8f7ee;color:var(--green)}.pill.mock{background:#fff2d9;color:var(--amber)}.decision{border-left:5px solid var(--green);background:#eefaf3;border-radius:12px;padding:18px 20px;margin-top:20px}.decision b{color:var(--green)}ol{padding-left:22px}.small{color:var(--muted);font-size:13px}@media(max-width:720px){main{padding:28px 16px}h1{font-size:32px}.grid{grid-template-columns:1fr}table{font-size:13px;display:block;overflow:auto;white-space:normal}}
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="eyebrow">Miami-Dade hurricane readiness · 2026-10-20</div>
+    <h1>The teammate deployment is hybrid—not an independent second agent.</h1>
+    <p class="lede">The Cloud Run command center is healthy and its backend already queries gold. Its visual command surface still renders mock data, which can drift from the copilot and BigQuery. Move the visual layer to gold-backed API responses while preserving the working Agent Runtime.</p>
+    <p class="meta">Deployment: <code>hurricane-evacuation-command</code> · Region: <code>us-east1</code></p>
+  </section>
+  <div class="grid">
+    <div class="card"><strong class="pass">Found</strong><span>One Agent Runtime resource and one likely teammate Cloud Run command center.</span></div>
+    <div class="card"><strong class="pass">109</strong><span>Gold-backed candidate evacuation shelters returned by the live API.</span></div>
+    <div class="card"><strong class="warn">Mock</strong><span>Map markers, cards, and directives still come from <code>readinessData.ts</code>.</span></div>
+  </div>
+  <h2>What was tested</h2>
+  <table><thead><tr><th>Use case</th><th>Result</th><th>Interpretation</th></tr></thead><tbody>
+    <tr><td>County overview</td><td><span class="pill live">Passed</span></td><td>Returns gold snapshot metrics, listed capacity, accessibility-record status, power dependence, and mobility proxy.</td></tr>
+    <tr><td>Priority tracts</td><td><span class="pill live">Passed</span></td><td>Ranks tracts from gold mobility proxy fields; top tract is <code>12086980700</code>.</td></tr>
+    <tr><td>Shelter options</td><td><span class="pill live">Passed</span></td><td>Returns candidate shelters, straight-line distance, listed capacity, and Maps place IDs.</td></tr>
+    <tr><td>Medically dependent resident with no peer</td><td><span class="pill live">Passed</span></td><td>Gives EEAP, special-needs shelter, medical-control, and verification guidance; still requires human agency confirmation.</td></tr>
+    <tr><td>Surge-zone query</td><td><span class="pill mock">Needs hardening</span></td><td>Client fallback contains a confident hardcoded claim; make this path API-backed and fail visibly when unavailable.</td></tr>
+  </tbody></table>
+  <h2>Current lineage</h2>
+  <table><thead><tr><th>Surface</th><th>Source</th><th>Status</th></tr></thead><tbody>
+    <tr><td>Overview / priority / shelter API</td><td><code>evacuation_readiness_gold</code></td><td><span class="pill live">Live gold</span></td></tr>
+    <tr><td>Copilot</td><td>Agent Runtime + gold tool + Maps grounding</td><td><span class="pill live">Live agent</span></td></tr>
+    <tr><td>Map, KPI cards, directives</td><td><code>frontend/src/mock/readinessData.ts</code></td><td><span class="pill mock">Mock</span></td></tr>
+    <tr><td>Operational status</td><td>No real-time opening, bed, or medical-acceptance integration</td><td><span class="pill mock">Planning only</span></td></tr>
+  </tbody></table>
+  <div class="decision"><b>Recommendation:</b> keep the Agent Runtime and the teammate UI, but make gold-backed API data the sole source for coordinator-facing metrics, map layers, shelter details, and directives. Keep Maps links tied to the actual returned shelter. Never turn planning-time gold into a claim that a shelter is open or has available beds.</div>
+  <h2>Next implementation slice</h2>
+  <ol><li>Replace mock initialization with API state and freshness metadata.</li><li>Generate directives from gold fields with labels such as “planning recommendation” and “current verification required.”</li><li>Remove confident client-side fallback claims; show an unavailable state instead.</li><li>Add contract tests for the current 109 shelters, 105,407 listed capacity, 104 accessibility-unrecorded candidates, and top tract <code>12086980700</code>.</li></ol>
+  <p class="small">Evidence: Cloud Run source archive, OpenAPI contract, live endpoint smoke tests, Agent Registry listing, and Cloud Run request logs. Full decision record is in the adjacent Markdown file.</p>
+</main>
+</body>
+</html>
