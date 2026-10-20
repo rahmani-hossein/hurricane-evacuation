@@ -25,6 +25,8 @@ data/*.parquet
 data/*.csv
 data/*.csv.gz
 
-# ADK runtime local state
-.adk/
-agent/.adk/
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
