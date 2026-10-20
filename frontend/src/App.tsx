@@ -152,7 +152,7 @@ export const App: React.FC = () => {
       </div>
 
       {/* 5. Bottom Interactive Copilot Command Bar */}
-      <CopilotBar onRunQuery={handleRunQuery} />
+      <CopilotBar onRunQuery={handleRunQuery} county={selectedCounty} />
 
       {/* Loading Modal */}
       {isQueryLoading && (

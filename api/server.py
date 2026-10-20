@@ -1,8 +1,10 @@
 """FastAPI bridge connecting frontend command center to Vertex AI Gemini and BigQuery."""
 import os
 import json
+import asyncio
+import base64
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google.cloud import bigquery
@@ -239,8 +241,186 @@ def get_county_readiness():
 
 REASONING_ENGINE_ID = os.environ.get(
     "REASONING_ENGINE_ID",
-    "projects/851021919219/locations/us-east1/reasoningEngines/1188724901742116864"
+    "projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272"
 )
+VOICE_MODEL = os.environ.get("VOICE_MODEL", "gemini-live-2.5-flash-native-audio")
+
+
+async def _ask_deployed_agent(query: str, user_id: str) -> str:
+    """Run one voice turn through the canonical deployed ADK Agent Engine."""
+    import vertexai
+    from vertexai import agent_engines
+
+    vertexai.init(project=PROJECT, location="us-east1")
+    engine = agent_engines.get(REASONING_ENGINE_ID)
+    events = []
+    async for event in engine.async_stream_query(message=query, user_id=user_id):
+        events.append(event)
+
+    chunks: List[str] = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        content = event.get("content") or {}
+        for part in content.get("parts", []):
+            if part.get("text"):
+                chunks.append(part["text"])
+    return "\n\n".join(chunks).strip() or "The readiness agent returned no text for that request."
+
+
+def _voice_tool() -> types.Tool:
+    """Expose one narrow bridge so Live never receives cloud credentials or raw SQL."""
+    return types.Tool(
+        function_declarations=[
+            types.FunctionDeclaration(
+                name="ask_readiness_agent",
+                description=(
+                    "Ask the canonical Lee County evacuation-readiness ADK agent a "
+                    "planning question. Use for risk, shelter, route, accessibility, "
+                    "medical, power, or outreach decisions."
+                ),
+                parameters_json_schema={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The complete planning question to answer.",
+                        }
+                    },
+                    "required": ["query"],
+                },
+            )
+        ]
+    )
+
+
+@app.websocket("/api/voice")
+async def voice_session(websocket: WebSocket):
+    """Bidirectional browser voice session backed by Gemini Live + ADK."""
+    await websocket.accept()
+    user_id = "coordinator_voice"
+    county = "Lee County, Florida"
+    geo_id = ""
+    live_client = genai.Client(vertexai=True, project=PROJECT, location="us-east1")
+
+    try:
+        start = await websocket.receive_json()
+        if start.get("type") != "start":
+            await websocket.send_json({"type": "error", "message": "Voice session must start with a start event."})
+            await websocket.close(code=1008)
+            return
+        user_id = start.get("userId") or user_id
+        county = start.get("county") or county
+        geo_id = start.get("geoId") or ""
+        context = f"Selected operational context: {county}."
+        if geo_id:
+            context += f" Selected tract: {geo_id}."
+
+        config = types.LiveConnectConfig(
+            response_modalities=["AUDIO"],
+            system_instruction=(
+                "You are the voice interface for a hurricane evacuation planning "
+                "coordinator. Keep responses concise and calm. For any operational "
+                "question, call ask_readiness_agent and faithfully summarize its answer. "
+                "Never invent shelter availability, medical acceptance, route times, "
+                "or outreach activation. Say 'unrecorded' rather than 'no' when data "
+                "is missing. Ask one clarification when needed. " + context
+            ),
+            tools=[_voice_tool()],
+            input_audio_transcription=types.AudioTranscriptionConfig(language_codes=["en-US"]),
+            output_audio_transcription=types.AudioTranscriptionConfig(language_codes=["en-US"]),
+        )
+
+        await websocket.send_json({"type": "session_started", "model": VOICE_MODEL, "county": county, "geoId": geo_id})
+        async with live_client.aio.live.connect(model=VOICE_MODEL, config=config) as live:
+            await _voice_client_loop(websocket, live, user_id)
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        print("Voice session error:", exc)
+        try:
+            await websocket.send_json({"type": "error", "message": "Voice session unavailable. Text chat remains available."})
+        except Exception:
+            pass
+
+
+async def _voice_client_loop(websocket: WebSocket, live: Any, user_id: str):
+    """Forward browser audio and Live server events in one cancellable loop."""
+    live_events = live.receive()
+    incoming = asyncio.create_task(websocket.receive_json())
+    outgoing = asyncio.create_task(live_events.__anext__())
+    try:
+        while True:
+            done, _ = await asyncio.wait({incoming, outgoing}, return_when=asyncio.FIRST_COMPLETED)
+            if incoming in done:
+                message = incoming.result()
+                kind = message.get("type")
+                if kind == "audio":
+                    await live.send_realtime_input(
+                        audio=types.Blob(
+                            data=base64.b64decode(message["data"]),
+                            mime_type=message.get("mimeType", "audio/pcm;rate=16000"),
+                        )
+                    )
+                elif kind == "audio_end":
+                    await live.send_realtime_input(audio_stream_end=True)
+                elif kind == "text":
+                    await live.send_realtime_input(text=message.get("text", ""))
+                elif kind == "interrupt":
+                    await websocket.send_json({"type": "interrupt"})
+                elif kind == "stop":
+                    return
+                incoming = asyncio.create_task(websocket.receive_json())
+
+            if outgoing in done:
+                try:
+                    response = outgoing.result()
+                except StopAsyncIteration:
+                    return
+                server_content = getattr(response, "server_content", None)
+                if server_content:
+                    input_tx = getattr(server_content, "input_transcription", None)
+                    output_tx = getattr(server_content, "output_transcription", None)
+                    if input_tx and getattr(input_tx, "text", None):
+                        await websocket.send_json({"type": "user_transcript", "text": input_tx.text})
+                    if output_tx and getattr(output_tx, "text", None):
+                        await websocket.send_json({"type": "agent_transcript", "text": output_tx.text})
+                    model_turn = getattr(server_content, "model_turn", None)
+                    for part in getattr(model_turn, "parts", []) if model_turn else []:
+                        inline = getattr(part, "inline_data", None)
+                        if inline and inline.data:
+                            audio = inline.data if isinstance(inline.data, bytes) else bytes(inline.data)
+                            await websocket.send_json({
+                                "type": "audio",
+                                "data": base64.b64encode(audio).decode("ascii"),
+                                "mimeType": inline.mime_type or "audio/pcm;rate=24000",
+                            })
+                    if getattr(server_content, "turn_complete", False):
+                        await websocket.send_json({"type": "agent_turn_complete"})
+
+                tool_call = getattr(response, "tool_call", None)
+                if tool_call:
+                    responses = []
+                    for function_call in tool_call.function_calls:
+                        if function_call.name != "ask_readiness_agent":
+                            continue
+                        query = (function_call.args or {}).get("query", "")
+                        await websocket.send_json({"type": "tool_started", "tool": "readiness_agent"})
+                        result = await _ask_deployed_agent(query, user_id)
+                        await websocket.send_json({"type": "tool_completed", "tool": "readiness_agent"})
+                        responses.append(
+                            types.FunctionResponse(
+                                id=function_call.id,
+                                name=function_call.name,
+                                response={"result": result},
+                            )
+                        )
+                    if responses:
+                        await live.send_tool_response(function_responses=responses)
+                outgoing = asyncio.create_task(live_events.__anext__())
+    finally:
+        incoming.cancel()
+        outgoing.cancel()
 
 @app.post("/api/copilot/chat")
 def copilot_chat(req: QueryRequest):

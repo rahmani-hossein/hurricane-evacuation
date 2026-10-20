@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Send, Sparkles, Compass } from 'lucide-react';
+import { VoiceConversation } from './VoiceConversation';
 
 interface CopilotBarProps {
   onRunQuery: (query: string) => void;
+  county: string;
 }
 
-export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery }) => {
+export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery, county }) => {
   const [input, setInput] = useState('');
 
   const quickPrompts = [
@@ -63,6 +65,7 @@ export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery }) => {
           <Send className="w-3.5 h-3.5" />
         </button>
       </form>
+      <VoiceConversation county={county} />
     </div>
   );
 };
