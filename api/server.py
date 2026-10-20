@@ -3,6 +3,8 @@ import os
 import json
 import asyncio
 import base64
+import time
+from functools import lru_cache
 from urllib.parse import quote_plus
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -247,17 +249,35 @@ REASONING_ENGINE_ID = os.environ.get(
     "projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272"
 )
 VOICE_MODEL = os.environ.get("VOICE_MODEL", "gemini-live-2.5-flash-native-audio")
+VOICE_CACHE_TTL_SECONDS = int(os.environ.get("VOICE_CACHE_TTL_SECONDS", "90"))
+_voice_answer_cache: Dict[str, tuple[float, str]] = {}
 
 
-async def _ask_deployed_agent(query: str, user_id: str) -> str:
-    """Run one voice turn through the canonical deployed ADK Agent Engine."""
+@lru_cache(maxsize=1)
+def _get_deployed_agent():
+    """Reuse the remote Agent Engine handle across voice turns in one container."""
     import vertexai
     from vertexai import agent_engines
 
     vertexai.init(project=PROJECT, location="us-east1")
-    engine = agent_engines.get(REASONING_ENGINE_ID)
+    return agent_engines.get(REASONING_ENGINE_ID)
+
+
+async def _ask_deployed_agent(query: str, user_id: str) -> str:
+    """Run a concise, cached voice turn through the canonical Lee County agent."""
+    cache_key = " ".join(query.lower().split())
+    cached = _voice_answer_cache.get(cache_key)
+    if cached and time.monotonic() - cached[0] < VOICE_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    engine = await asyncio.to_thread(_get_deployed_agent)
+    voice_query = (
+        "Answer this operational question for voice in no more than three short sentences. "
+        "Lead with the actionable result, preserve uncertainty such as UNRECORDED, and omit "
+        "long tables or markdown. User question: " + query
+    )
     events = []
-    async for event in engine.async_stream_query(message=query, user_id=user_id):
+    async for event in engine.async_stream_query(message=voice_query, user_id=user_id):
         events.append(event)
 
     chunks: List[str] = []
@@ -268,7 +288,9 @@ async def _ask_deployed_agent(query: str, user_id: str) -> str:
         for part in content.get("parts", []):
             if part.get("text"):
                 chunks.append(part["text"])
-    return "\n\n".join(chunks).strip() or "The readiness agent returned no text for that request."
+    answer = "\n\n".join(chunks).strip() or "The readiness agent returned no text for that request."
+    _voice_answer_cache[cache_key] = (time.monotonic(), answer)
+    return answer
 
 
 def _voice_tool() -> types.Tool:
@@ -409,6 +431,7 @@ async def _voice_client_loop(websocket: WebSocket, live: Any, user_id: str):
                             continue
                         query = (function_call.args or {}).get("query", "")
                         await websocket.send_json({"type": "tool_started", "tool": "readiness_agent"})
+                        await websocket.send_json({"type": "agent_transcript", "text": "I’m checking the Lee County readiness data now."})
                         result = await _ask_deployed_agent(query, user_id)
                         await websocket.send_json({"type": "tool_completed", "tool": "readiness_agent"})
                         responses.append(
