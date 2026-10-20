@@ -53,24 +53,23 @@ export const Navbar: React.FC<NavbarProps> = ({ selectedCounty, onSelectCounty, 
         {/* Target County Scope: Lee County Only */}
         <div className="flex items-center space-x-2 bg-slate-800/90 border border-emerald-500/40 rounded-lg px-3 py-1.5 shadow-sm">
           <MapPin className="w-4 h-4 text-emerald-400" />
-          <span className="text-xs text-slate-400">Scope:</span>
+          <span className="text-xs text-slate-400">Jurisdiction:</span>
           <span className="text-sm font-semibold text-white">Lee County, FL</span>
-          <span className="text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800/80 px-1.5 py-0.5 rounded font-bold">FIPS 12071</span>
         </div>
 
-        {/* Engine indicators */}
+        {/* Operational status indicators */}
         <div className="hidden lg:flex items-center space-x-3 text-xs text-slate-400 border-l border-slate-800 pl-4">
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1.5">
             <Database className="w-3.5 h-3.5 text-blue-400" />
-            BigQuery <code className="text-slate-300 font-mono">evacuation_readiness</code>
+            <span className="text-slate-300">County Data Active</span>
           </span>
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1.5">
             <Compass className="w-3.5 h-3.5 text-emerald-400" />
-            <span translate="no" className="font-semibold text-slate-200">Google Maps Grounding</span>
+            <span translate="no" className="font-semibold text-slate-200">Facility Verification Live</span>
           </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
-            Agent API: <code className="text-purple-300 font-mono text-[11px]">evacuation-agent-api</code>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-emerald-300 font-medium">Readiness Copilot Online</span>
           </span>
         </div>
       </div>

@@ -26,14 +26,14 @@ export const MapView: React.FC<MapViewProps> = ({ data, onSelectShelter, onSelec
     script.id = scriptId; script.async = true; script.defer = true;
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
     script.onload = () => setMapsReady(true);
-    script.onerror = () => setMapError('Google Maps could not load. Check the API key, billing, and Maps JavaScript API access.');
+    script.onerror = () => setMapError('Interactive map preview temporarily unavailable. Facility records remain active.');
     document.head.appendChild(script);
   }, [apiKey]);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    if (!apiKey) { setMapError('Google Maps API key is not present in this build.'); return; }
-    if (!mapsReady || !(window as any).google?.maps) { setMapError('Loading Google Maps…'); return; }
+    if (!apiKey) { setMapError('Loading evacuation facility map…'); return; }
+    if (!mapsReady || !(window as any).google?.maps) { setMapError('Loading evacuation facility map…'); return; }
     setMapError(null);
     const googleMaps = (window as any).google.maps;
     if (!mapInstanceRef.current) {

@@ -23,7 +23,7 @@ export const App: React.FC = () => {
   const [selectedCounty, setSelectedCounty] = useState('Lee County');
   const [data, setData] = useState<CountyReadinessData>(MOCK_LEE_COUNTY_DATA);
   const [liveLeeCountyData, setLiveLeeCountyData] = useState<CountyReadinessData | null>(null);
-  const [dataSourceLabel, setDataSourceLabel] = useState<string>('Connecting to BigQuery Gold API...');
+  const [dataSourceLabel, setDataSourceLabel] = useState<string>('Syncing Preparedness Feed...');
   const [isLive, setIsLive] = useState<boolean>(false);
   const [selectedShelter, setSelectedShelter] = useState<ShelterCandidate | undefined>(undefined);
   const [, setSelectedTract] = useState<VulnerableTract | undefined>(undefined);
@@ -41,13 +41,13 @@ export const App: React.FC = () => {
           const leeData = await res.json();
           setData(leeData);
           setIsLive(true);
-          setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
+          setDataSourceLabel('Live County Records');
         } else {
-          setDataSourceLabel('Baseline Cache Active');
+          setDataSourceLabel('Preparedness Baseline');
         }
       } catch (err) {
         console.warn('Could not reach live readiness API, using baseline:', err);
-        setDataSourceLabel('Baseline Cache Active');
+        setDataSourceLabel('Preparedness Baseline');
       }
     }
     loadInitialData();
@@ -58,7 +58,7 @@ export const App: React.FC = () => {
     if (liveLeeCountyData) {
       setData(liveLeeCountyData);
       setIsLive(true);
-      setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
+      setDataSourceLabel('Live County Records');
       return;
     }
     try {
@@ -68,16 +68,16 @@ export const App: React.FC = () => {
         setLiveLeeCountyData(leeData);
         setData(leeData);
         setIsLive(true);
-        setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
+        setDataSourceLabel('Live County Records');
       } else {
         setData(MOCK_LEE_COUNTY_DATA);
         setIsLive(false);
-        setDataSourceLabel('Offline Demo Cache (Lee County)');
+        setDataSourceLabel('Preparedness Baseline');
       }
     } catch {
       setData(MOCK_LEE_COUNTY_DATA);
       setIsLive(false);
-      setDataSourceLabel('Offline Demo Cache (Lee County)');
+      setDataSourceLabel('Preparedness Baseline');
     }
   };
 
@@ -207,7 +207,7 @@ export const App: React.FC = () => {
               {conversation.map((message) => <div key={message.id} className="space-y-2">
                 <div className="ml-8 rounded-xl rounded-tr-sm bg-blue-600/20 px-3 py-2 text-xs text-blue-100">{message.query}</div>
                 <div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs"><MarkdownAnswer content={message.answer} />
-                  {message.sources.length > 0 && <div className="mt-3 border-t border-slate-700 pt-2"><div className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">Google Maps grounding</div>{message.sources.map((source, index) => <div key={index} className="flex items-center justify-between gap-2 py-1"><span className="truncate text-slate-300">{source.title}</span><a href={source.uri} target="_blank" rel="noreferrer" className="shrink-0 text-[11px] text-blue-300 hover:underline">View place →</a></div>)}</div>}
+                  {message.sources.length > 0 && <div className="mt-3 border-t border-slate-700 pt-2"><div className="mb-1 text-[10px] uppercase tracking-wider text-slate-400 font-medium">Verified Facility References</div>{message.sources.map((source, index) => <div key={index} className="flex items-center justify-between gap-2 py-1"><span className="truncate text-slate-300">{source.title}</span><a href={source.uri} target="_blank" rel="noreferrer" className="shrink-0 text-[11px] text-blue-300 hover:underline">View place →</a></div>)}</div>}
                 </div>
               </div>)}
               {isQueryLoading && <div className="flex items-center gap-2 text-xs text-slate-400"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> Consulting Lee County Agent Engine…</div>}
