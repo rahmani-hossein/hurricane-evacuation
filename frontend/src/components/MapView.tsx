@@ -8,12 +8,7 @@ interface MapViewProps {
   onSelectTract?: (tract: VulnerableTract) => void;
 }
 
-export const MapView: React.FC<MapViewProps> = ({
-  data,
-  selectedShelterId,
-  onSelectShelter,
-  onSelectTract
-}) => {
+export const MapView: React.FC<MapViewProps> = ({ data, onSelectShelter, onSelectTract }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const overlaysRef = useRef<any[]>([]);
@@ -26,15 +21,9 @@ export const MapView: React.FC<MapViewProps> = ({
     if ((window as any).google?.maps) { setMapsReady(true); return; }
     const scriptId = 'google-maps-javascript-api';
     const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener('load', () => setMapsReady(true), { once: true });
-      return;
-    }
-
+    if (existing) { existing.addEventListener('load', () => setMapsReady(true), { once: true }); return; }
     const script = document.createElement('script');
-    script.id = scriptId;
-    script.async = true;
-    script.defer = true;
+    script.id = scriptId; script.async = true; script.defer = true;
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
     script.onload = () => setMapsReady(true);
     script.onerror = () => setMapError('Google Maps could not load. Check the API key, billing, and Maps JavaScript API access.');
@@ -43,22 +32,13 @@ export const MapView: React.FC<MapViewProps> = ({
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    if (!apiKey) { setMapError('Add VITE_GOOGLE_MAPS_API_KEY to frontend/.env.local to render the live map.'); return; }
-    if (!mapsReady || !(window as any).google?.maps) { setMapError(apiKey ? 'Loading Google Maps…' : null); return; }
+    if (!apiKey) { setMapError('Google Maps API key is not present in this build.'); return; }
+    if (!mapsReady || !(window as any).google?.maps) { setMapError('Loading Google Maps…'); return; }
     setMapError(null);
-
     const googleMaps = (window as any).google.maps;
     if (!mapInstanceRef.current) {
-      mapInstanceRef.current = new googleMaps.Map(mapContainerRef.current, {
-        center: { lat: data.county.includes('Lee') ? 26.58 : 25.76, lng: data.county.includes('Lee') ? -81.95 : -80.19 },
-        zoom: 10,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: true,
-        clickableIcons: false,
-      });
+      mapInstanceRef.current = new googleMaps.Map(mapContainerRef.current, { center: { lat: 26.58, lng: -81.95 }, zoom: 10, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, clickableIcons: false });
     }
-
     const map = mapInstanceRef.current;
     overlaysRef.current.forEach((overlay) => overlay.setMap(null));
     overlaysRef.current = [];
@@ -73,14 +53,11 @@ export const MapView: React.FC<MapViewProps> = ({
       const circle = new googleMaps.Circle({ map, center: position, radius: tract.riskTier === 'CRITICAL' ? 1050 : tract.riskTier === 'HIGH' ? 850 : 650, fillColor: color, fillOpacity: 0.28, strokeColor: color, strokeOpacity: 0.95, strokeWeight: 2, zIndex: tract.riskTier === 'CRITICAL' ? 3 : 2 });
       circle.addListener('click', () => { onSelectTract?.(tract); openInfo(position, `<div style="font:13px system-ui;min-width:220px"><strong>${tract.name}</strong><div style="margin-top:6px;color:${color};font-weight:700">${tract.riskTier} · Gold score ${tract.riskScore ?? 'n/a'}</div><div style="margin-top:6px">${tract.householdsNoVehicle.toLocaleString()} no-vehicle households (${tract.pctNoVehicle}%)<br/>${tract.pctAge65Plus}% age 65+ · ${tract.distanceToShelterKm} km to shelter</div></div>`); });
       overlaysRef.current.push(circle); bounds.extend(position);
-
       if (tract.riskTier !== 'MODERATE' && data.shelters.length) {
         const nearest = data.shelters.reduce((best, shelter) => Math.hypot(shelter.lat - tract.lat, shelter.lon - tract.lon) < Math.hypot(best.lat - tract.lat, best.lon - tract.lon) ? shelter : best, data.shelters[0]);
-        const line = new googleMaps.Polyline({ map, path: [position, { lat: nearest.lat, lng: nearest.lon }], strokeColor: '#fb923c', strokeOpacity: 0.7, strokeWeight: 2, icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 }, offset: '0', repeat: '12px' }] });
-        overlaysRef.current.push(line);
+        overlaysRef.current.push(new googleMaps.Polyline({ map, path: [position, { lat: nearest.lat, lng: nearest.lon }], strokeColor: '#fb923c', strokeOpacity: 0.7, strokeWeight: 2, icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 }, offset: '0', repeat: '12px' }] }));
       }
     });
-
     data.shelters.forEach((shelter) => {
       const position = { lat: shelter.lat, lng: shelter.lon };
       const color = shelter.inSurgeZone ? '#ef4444' : shelter.wheelchairStatus === 'UNRECORDED' ? '#f59e0b' : '#10b981';
@@ -92,43 +69,12 @@ export const MapView: React.FC<MapViewProps> = ({
     return () => infoWindow.close();
   }, [apiKey, data, mapsReady, onSelectShelter, onSelectTract]);
 
-  return (
-    <div className="relative w-full h-full flex flex-col bg-slate-950">
-      {/* Map Legend Overlay */}
-      <div className="absolute top-3 left-3 z-[1000] bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-lg p-3 text-xs text-slate-200 shadow-xl max-w-xs">
-        <h3 className="font-bold text-white uppercase tracking-wider text-[11px] mb-2 border-b border-slate-800 pb-1">
-          Geospatial Readiness Layers
-        </h3>
-        <div className="space-y-1.5">
-          <div className="flex items-center space-x-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-red-600/80 border border-red-200 inline-block"></span>
-            <span>Critical tract · gold mobility score ≥ 38</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-orange-500/80 border border-orange-200 inline-block"></span>
-            <span>High tract · gold score ≥ 30</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-amber-400/80 border border-amber-200 inline-block"></span>
-            <span>Moderate tract · outreach context</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 border border-white inline-block"></span>
-            <span>Verified Shelter (Outside Surge Zone)</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-amber-500 border border-white inline-block"></span>
-            <span>Unrecorded Wheelchair Status (Audit Target)</span>
-          </div>
-          <div className="flex items-center space-x-2 pt-1 border-t border-slate-800 text-orange-400 font-mono text-[10px]">
-            <span>- - - Transit Gap Vector (Distance to Inland Shelter)</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Map Canvas */}
-      <div ref={mapContainerRef} className="w-full h-full z-0" />
-      {mapError && !(window as any).google?.maps && <div className="absolute inset-0 z-[900] flex items-center justify-center bg-slate-950/92 p-6 text-center"><div className="max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"><div className="text-sm font-bold text-white">Google Maps layer unavailable</div><div className="mt-2 text-xs leading-5 text-slate-400">{mapError}</div><div className="mt-4 text-[10px] uppercase tracking-wider text-slate-500">The gold risk layer is ready; configure the Maps JavaScript API key to render it.</div></div></div>}
+  return <div className="relative flex h-full w-full flex-col bg-slate-950">
+    <div className="absolute left-3 top-3 z-[1000] max-w-xs rounded-lg border border-slate-700/80 bg-slate-900/90 p-3 text-xs text-slate-200 shadow-xl backdrop-blur-md">
+      <h3 className="mb-2 border-b border-slate-800 pb-1 text-[11px] font-bold uppercase tracking-wider text-white">Geospatial Readiness Layers</h3>
+      <div className="space-y-1.5"><div>🔴 Critical tract · gold mobility score ≥ 38</div><div>🟠 High tract · gold score ≥ 30</div><div>🟡 Moderate tract · outreach context</div><div>🟢 Verified shelter</div><div>🟠 Unrecorded accessibility</div><div className="border-t border-slate-800 pt-1 font-mono text-[10px] text-orange-400">- - - Transit gap vector</div></div>
     </div>
-  );
+    <div ref={mapContainerRef} className="z-0 h-full w-full" />
+    {mapError && !(window as any).google?.maps && <div className="absolute inset-0 z-[900] flex items-center justify-center bg-slate-950/92 p-6 text-center"><div className="max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"><div className="text-sm font-bold text-white">Google Maps layer unavailable</div><div className="mt-2 text-xs leading-5 text-slate-400">{mapError}</div></div></div>}
+  </div>;
 };
