@@ -12,8 +12,8 @@ Connect the coordinator web UI to the deployed Lee County ADK agent through a se
 | County FIPS | `12071` |
 | Project | `qwiklabs-gcp-04-9fa9c7b57012` |
 | Region | `us-east1` |
-| Agent Runtime resource | `projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104` |
-| Model | `gemini-3.6-flash` |
+| Agent Runtime resource | `projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272` |
+| Model | `gemini-2.5-flash` with Maps/Search grounding sub-agents |
 
 The older Miami-Dade-oriented frontend deployment is not the canonical agent for this PR. Use the Lee County runtime above.
 
@@ -27,7 +27,7 @@ from vertexai import agent_engines
 
 vertexai.init(project="qwiklabs-gcp-04-9fa9c7b57012", location="us-east1")
 engine = agent_engines.get(
-    "projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104"
+    "projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272"
 )
 session = engine.create_session(user_id="coordinator_web")
 session_id = session.get("id") if isinstance(session, dict) else session.id
@@ -39,8 +39,8 @@ events = engine.stream_query(
 REST endpoints:
 
 ```text
-https://us-east1-aiplatform.googleapis.com/v1/projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104:query
-https://us-east1-aiplatform.googleapis.com/v1/projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104:streamQuery
+https://us-east1-aiplatform.googleapis.com/v1/projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272:query
+https://us-east1-aiplatform.googleapis.com/v1/projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272:streamQuery
 ```
 
 Expose a small app API such as `POST /api/copilot/chat`; the browser sends the user message plus selected `geo_id`, and the backend forwards the request to Agent Runtime.

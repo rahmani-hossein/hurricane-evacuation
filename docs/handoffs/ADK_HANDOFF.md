@@ -5,9 +5,9 @@ This is the canonical agent contract for the hackathon. The operating scope is *
 ## Deployed Agent Runtime
 
 - Display name: `Lee County Hurricane Readiness`
-- Resource: `projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104`
+- Resource: `projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272`
 - Region: `us-east1`
-- Model: `gemini-3.6-flash`
+- Model: `gemini-2.5-flash`; Maps and Search are isolated in ADK sub-agents for Gemini 2.5 compatibility.
 - Framework: Google ADK
 - Staging bucket: `gs://qwiklabs-gcp-04-9fa9c7b57012-agent-staging`
 
