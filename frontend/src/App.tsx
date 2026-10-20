@@ -5,39 +5,43 @@ import { StatCards } from './components/StatCards';
 import { MapView } from './components/MapView';
 import { ReadinessBrief } from './components/ReadinessBrief';
 import { CopilotBar } from './components/CopilotBar';
-import { MOCK_MIAMI_DADE_DATA, MOCK_LEE_COUNTY_DATA, CountyReadinessData, ShelterCandidate, VulnerableTract } from './mock/readinessData';
-import { CheckCircle2, X } from 'lucide-react';
+import { MOCK_LEE_COUNTY_DATA, CountyReadinessData, ShelterCandidate, VulnerableTract } from './mock/readinessData';
+import { ChevronDown, Maximize2, MessageCircle, Minus, Send, X } from 'lucide-react';
+import { MarkdownAnswer } from './components/MarkdownAnswer';
+
+type AgentMessage = {
+  id: number;
+  query: string;
+  answer: string;
+  sources: Array<{ title: string; uri: string }>;
+  model?: string;
+  engineId?: string;
+  county?: string;
+};
 
 export const App: React.FC = () => {
-  const [selectedCounty, setSelectedCounty] = useState('Miami-Dade County');
-  const [data, setData] = useState<CountyReadinessData>(MOCK_MIAMI_DADE_DATA);
-  const [liveMiamiDadeData, setLiveMiamiDadeData] = useState<CountyReadinessData | null>(null);
+  const [selectedCounty, setSelectedCounty] = useState('Lee County');
+  const [data, setData] = useState<CountyReadinessData>(MOCK_LEE_COUNTY_DATA);
   const [liveLeeCountyData, setLiveLeeCountyData] = useState<CountyReadinessData | null>(null);
   const [dataSourceLabel, setDataSourceLabel] = useState<string>('Connecting to BigQuery Gold API...');
   const [isLive, setIsLive] = useState<boolean>(false);
   const [selectedShelter, setSelectedShelter] = useState<ShelterCandidate | undefined>(undefined);
   const [, setSelectedTract] = useState<VulnerableTract | undefined>(undefined);
   const [isQueryLoading, setIsQueryLoading] = useState(false);
-  const [agentResponseModal, setAgentResponseModal] = useState<{
-    query: string;
-    answer: string;
-    sources: Array<{ title: string; uri: string }>;
-    model?: string;
-    engineId?: string;
-    county?: string;
-    isAi?: boolean;
-  } | null>(null);
+  const [conversation, setConversation] = useState<AgentMessage[]>([]);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [isCopilotMinimized, setIsCopilotMinimized] = useState(false);
+  const [followUp, setFollowUp] = useState('');
 
   useEffect(() => {
     async function loadInitialData() {
       try {
-        const res = await fetch('/api/miami-dade/readiness');
+        const res = await fetch('/api/lee/readiness');
         if (res.ok) {
-          const goldData = await res.json();
-          setLiveMiamiDadeData(goldData);
-          setData(goldData);
+          const leeData = await res.json();
+          setData(leeData);
           setIsLive(true);
-          setDataSourceLabel('Live BigQuery Gold API (Miami-Dade FIPS 12086)');
+          setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
         } else {
           setDataSourceLabel('Baseline Cache Active');
         }
@@ -51,60 +55,35 @@ export const App: React.FC = () => {
 
   const handleSelectCounty = async (county: string) => {
     setSelectedCounty(county);
-    if (county.includes('Lee')) {
-      if (liveLeeCountyData) {
-        setData(liveLeeCountyData);
+    if (liveLeeCountyData) {
+      setData(liveLeeCountyData);
+      setIsLive(true);
+      setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
+      return;
+    }
+    try {
+      const res = await fetch('/api/lee/readiness');
+      if (res.ok) {
+        const leeData = await res.json();
+        setLiveLeeCountyData(leeData);
+        setData(leeData);
         setIsLive(true);
         setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
       } else {
-        try {
-          const res = await fetch('/api/lee/readiness');
-          if (res.ok) {
-            const leeData = await res.json();
-            setLiveLeeCountyData(leeData);
-            setData(leeData);
-            setIsLive(true);
-            setDataSourceLabel('Live BigQuery Views (Lee County FIPS 12071)');
-          } else {
-            setData(MOCK_LEE_COUNTY_DATA);
-            setIsLive(false);
-            setDataSourceLabel('Offline Demo Cache (Lee County)');
-          }
-        } catch {
-          setData(MOCK_LEE_COUNTY_DATA);
-          setIsLive(false);
-          setDataSourceLabel('Offline Demo Cache (Lee County)');
-        }
+        setData(MOCK_LEE_COUNTY_DATA);
+        setIsLive(false);
+        setDataSourceLabel('Offline Demo Cache (Lee County)');
       }
-    } else {
-      if (liveMiamiDadeData) {
-        setData(liveMiamiDadeData);
-        setIsLive(true);
-        setDataSourceLabel('Live BigQuery Gold API (Miami-Dade FIPS 12086)');
-      } else {
-        try {
-          const res = await fetch('/api/miami-dade/readiness');
-          if (res.ok) {
-            const miamiData = await res.json();
-            setLiveMiamiDadeData(miamiData);
-            setData(miamiData);
-            setIsLive(true);
-            setDataSourceLabel('Live BigQuery Gold API (Miami-Dade FIPS 12086)');
-          } else {
-            setData(MOCK_MIAMI_DADE_DATA);
-            setIsLive(false);
-            setDataSourceLabel('Baseline Cache Active');
-          }
-        } catch {
-          setData(MOCK_MIAMI_DADE_DATA);
-          setIsLive(false);
-          setDataSourceLabel('Baseline Cache Active');
-        }
-      }
+    } catch {
+      setData(MOCK_LEE_COUNTY_DATA);
+      setIsLive(false);
+      setDataSourceLabel('Offline Demo Cache (Lee County)');
     }
   };
 
   const handleRunQuery = async (query: string) => {
+    setIsCopilotOpen(true);
+    setIsCopilotMinimized(false);
     setIsQueryLoading(true);
     try {
       const res = await fetch('/api/copilot/chat', {
@@ -114,15 +93,15 @@ export const App: React.FC = () => {
       });
       if (res.ok) {
         const payload = await res.json();
-        setAgentResponseModal({
+        setConversation((current) => [...current, {
+          id: Date.now(),
           query,
           answer: payload.answer,
           sources: payload.sources || [],
           model: payload.model,
           engineId: payload.engine_id,
-          county: payload.county,
-          isAi: payload.is_ai_generated
-        });
+          county: payload.county
+        }]);
         setIsQueryLoading(false);
         return;
       }
@@ -134,30 +113,38 @@ export const App: React.FC = () => {
 
     // Client-side fallback if server offline
     if (query.toLowerCase().includes('surge')) {
-      setAgentResponseModal({
-        query,
-        answer: "FEMA NRI and SLOSH analysis confirm all candidate EVAC shelters in Miami-Dade are located outside Category 2 surge zones. In Lee County, 3 shelters are flagged in coastal flood zones.",
+      setConversation((current) => [...current, {
+        id: Date.now(), query,
+        answer: "FEMA NRI and SLOSH analysis flags 3 Lee County candidate shelters in coastal flood zones. Route residents to inland candidates and keep barrier-island sites out of the pre-landfall plan.",
         sources: [
-          { title: "Robert C. Morgan High School", uri: "https://maps.google.com/?cid=ChIJt2Ah773D2YgRXrgXnbOxtbI" }
+          { title: "Estero High School", uri: "https://maps.google.com/?q=21900+River+Ranch+Rd,+Estero,+FL+33928" }
         ]
-      });
+      }]);
     } else if (query.toLowerCase().includes('paratransit') || query.toLowerCase().includes('vehicle')) {
-      setAgentResponseModal({
-        query,
-        answer: "Tract 9807.00 (Homestead) has 65.6% zero-vehicle households and is 7.3 straight-line miles from Robert C. Morgan High. Scheduled pre-landfall paratransit depots are required.",
+      setConversation((current) => [...current, {
+        id: Date.now(), query,
+        answer: "Lee County’s highest-priority tracts include Pine Island / Matlacha, where 412 households have no personal vehicle and the nearest verified inland shelter is 11.2 km away. Scheduled pre-landfall paratransit is required.",
         sources: [
-          { title: "Robert C. Morgan High School", uri: "https://maps.google.com/?cid=ChIJt2Ah773D2YgRXrgXnbOxtbI" }
+          { title: "Estero High School", uri: "https://maps.google.com/?q=21900+River+Ranch+Rd,+Estero,+FL+33928" }
         ]
-      });
+      }]);
     } else {
-      setAgentResponseModal({
-        query,
-        answer: "In Miami-Dade County, 95.4% (104 of 109) candidate shelters have unrecorded wheelchair accessibility. The agent designates these as unrecorded rather than inaccessible to avoid false negatives.",
+      setConversation((current) => [...current, {
+        id: Date.now(), query,
+        answer: "In Lee County, most candidate shelters have unrecorded wheelchair accessibility. The agent designates these as unrecorded rather than inaccessible, creating a verify-first inspection list.",
         sources: [
-          { title: "Miami Southridge High School", uri: "https://maps.google.com/?cid=ChIJgaqKh4PD2YgRDwc62Qyh5jc" }
+          { title: "Island Coast High School", uri: "https://maps.google.com/?q=2125+De+Navarra+Pkwy,+Cape+Coral,+FL+33909" }
         ]
-      });
+      }]);
     }
+  };
+
+  const submitFollowUp = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!followUp.trim() || isQueryLoading) return;
+    const query = followUp.trim();
+    setFollowUp('');
+    handleRunQuery(query);
   };
 
   return (
@@ -201,79 +188,32 @@ export const App: React.FC = () => {
       {/* 5. Bottom Interactive Copilot Command Bar */}
       <CopilotBar onRunQuery={handleRunQuery} selectedCounty={selectedCounty} />
 
-      {/* Loading Modal */}
-      {isQueryLoading && (
-        <div className="fixed inset-0 z-[2000] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-blue-500/40 rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col items-center text-center">
-            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <h3 className="text-white font-bold text-sm mb-1">Consulting Teammate Reasoning Engine...</h3>
-            <p className="text-slate-400 text-xs leading-relaxed">
-              Invoking <span className="text-blue-300 font-medium">Vertex AI Agent Runtime (gemini-3.6-flash)</span> with live BigQuery tools & Google Maps Grounding.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Live Agent Response Modal */}
-      {agentResponseModal && (
-        <div className="fixed inset-0 z-[2000] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
-            <button
-              onClick={() => setAgentResponseModal(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex flex-col gap-1 mb-2 pr-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                  <span>Live Agent Engine • {agentResponseModal.model || 'Vertex AI Reasoning Engine'}</span>
-                </div>
-                <span className="text-[10px] bg-blue-950 text-blue-300 px-2 py-0.5 rounded border border-blue-800">
-                  {agentResponseModal.county || selectedCounty} Grounded
-                </span>
-              </div>
-              {agentResponseModal.engineId && (
-                <div className="text-[10px] font-mono text-slate-400 bg-slate-950/80 px-2 py-1 rounded border border-slate-800 truncate">
-                  Engine: <span className="text-blue-400">{agentResponseModal.engineId}</span>
-                </div>
-              )}
+      {isCopilotOpen && (
+        <aside className={`fixed z-[2000] border border-slate-700 bg-slate-900/98 shadow-2xl backdrop-blur-xl ${isCopilotMinimized ? 'bottom-20 right-4 w-72 rounded-xl' : 'inset-y-4 right-4 w-[min(560px,calc(100vw-2rem))] rounded-2xl'} flex flex-col`}>
+          <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-emerald-400" />
+              <div><div className="text-sm font-semibold text-white">Readiness Copilot</div><div className="text-[10px] text-slate-400">Lee County · follow-up enabled</div></div>
             </div>
-
-            <h3 className="text-white font-bold text-sm mb-3">"{agentResponseModal.query}"</h3>
-            <div className="overflow-y-auto pr-1 flex-1 mb-4">
-              <p className="text-slate-200 text-xs leading-relaxed bg-slate-800/80 p-4 rounded-xl border border-slate-700/60 whitespace-pre-line">
-                {agentResponseModal.answer}
-              </p>
-            </div>
-
-            <div className="pt-3 border-t border-slate-800 shrink-0">
-              <span className="text-[11px] text-slate-400 block mb-2">
-                Grounding Sources (<span translate="no" className="font-semibold text-slate-200">Google Maps</span>):
-              </span>
-              <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                {agentResponseModal.sources.map((s, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-xs bg-slate-950 p-2 rounded border border-slate-800">
-                    <span className="text-slate-200 font-medium truncate mr-2">{s.title}</span>
-                    <a
-                      href={s.uri}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-400 hover:underline text-[11px] shrink-0"
-                    >
-                      View Place →
-                    </a>
-                  </div>
-                ))}
-              </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setIsCopilotMinimized((value) => !value)} className="rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white" aria-label={isCopilotMinimized ? 'Expand copilot' : 'Minimize copilot'}>{isCopilotMinimized ? <Maximize2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}</button>
+              <button onClick={() => setIsCopilotOpen(false)} className="rounded p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Close copilot"><X className="h-4 w-4" /></button>
             </div>
           </div>
-        </div>
+          {!isCopilotMinimized && <>
+            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              {!conversation.length && <div className="rounded-xl border border-dashed border-slate-700 p-4 text-xs text-slate-400">Ask a preparedness question to start a grounded conversation. Follow-up questions stay in this panel.</div>}
+              {conversation.map((message) => <div key={message.id} className="space-y-2">
+                <div className="ml-8 rounded-xl rounded-tr-sm bg-blue-600/20 px-3 py-2 text-xs text-blue-100">{message.query}</div>
+                <div className="rounded-xl rounded-tl-sm border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs"><MarkdownAnswer content={message.answer} />
+                  {message.sources.length > 0 && <div className="mt-3 border-t border-slate-700 pt-2"><div className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">Google Maps grounding</div>{message.sources.map((source, index) => <div key={index} className="flex items-center justify-between gap-2 py-1"><span className="truncate text-slate-300">{source.title}</span><a href={source.uri} target="_blank" rel="noreferrer" className="shrink-0 text-[11px] text-blue-300 hover:underline">View place →</a></div>)}</div>}
+                </div>
+              </div>)}
+              {isQueryLoading && <div className="flex items-center gap-2 text-xs text-slate-400"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> Consulting Lee County Agent Engine…</div>}
+            </div>
+            <form onSubmit={submitFollowUp} className="flex gap-2 border-t border-slate-700 p-3"><input value={followUp} onChange={(event) => setFollowUp(event.target.value)} placeholder="Ask a follow-up…" className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-blue-500" /><button disabled={isQueryLoading} className="rounded-lg bg-blue-600 px-3 text-white disabled:opacity-50" aria-label="Send follow-up"><Send className="h-4 w-4" /></button></form>
+          </>}
+        </aside>
       )}
     </div>
   );
