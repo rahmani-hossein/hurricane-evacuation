@@ -12,6 +12,10 @@ from google.cloud import bigquery
 PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-9fa9c7b57012")
 DATASET = "evacuation_readiness_gold"
 
+# Agent Runtime may live in a regional location while Gemini 3.x is served from
+# the supported global endpoint. Set this before ADK constructs its model client.
+os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
+
 
 def query_miami_dade_readiness(
     question_type: str = "overview",
@@ -75,7 +79,9 @@ def query_miami_dade_readiness(
 
 root_agent = Agent(
     name="miami_dade_hurricane_readiness",
-    model=os.environ.get("ADK_MODEL", "gemini-2.5-flash"),
+    # Gemini 3.x is required because this agent combines a custom function tool
+    # with Google Maps grounding in the same turn.
+    model="gemini-3.6-flash",
     description="Planning-time evacuation readiness agent for Miami-Dade County.",
     instruction="""
 You are the Miami-Dade Hurricane Readiness coordinator agent.

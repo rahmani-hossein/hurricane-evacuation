@@ -23,6 +23,22 @@ This file is append-only. Add new entries at the bottom; do not rewrite prior en
 - Moved handoffs to `docs/handoffs/`, validation results to `docs/validation/`, product decisions to
   `docs/decisions/`, and the append-only log to `docs/operations/`.
 - Updated the agent README and added `docs/README.md` as the documentation index.
+
+## 2026-10-20 — Agent Runtime publication
+
+- Confirmed PR #1 merged to `main`.
+- Added Agent Runtime deployment files: `requirements.txt`, `agent/deploy.py`, and
+  `scripts/deploy_agent_runtime.sh`.
+- Enabled the required Vertex AI, BigQuery, Cloud Storage, Logging, Resource Manager, IAM, Cloud
+  Build, Artifact Registry, and Service Usage APIs.
+- Created the private staging bucket `gs://qwiklabs-gcp-04-9fa9c7b57012-agent-staging`.
+- Deployed the agent to Agent Runtime resource
+  `projects/qwiklabs-gcp-04-9fa9c7b57012/locations/us-east1/reasoningEngines/1188724901742116864`.
+- Granted the default Agent Runtime identity BigQuery Job User and Data Viewer access at project
+  scope because the lab did not allow dataset-level IAM bindings.
+- Hosted smoke test passed: the agent returned 109 Miami-Dade EVAC/BOTH shelter candidates and
+  105,407 listed evacuation capacity.
+- Opened follow-up deployment PR #3 for the repository deployment scaffolding.
 - Confirmed raw Miami-Dade shelter counts: 138 distinct shelter records; 113 EVAC/BOTH records; 109 EVAC/BOTH records with positive evacuation capacity and therefore in the current gold candidate set.
 - Smoke-tested an ADK agent with `google_maps_grounding` against Gemini 3.6 Flash and Gemini 2.5 Flash. Both failed before tool execution with Vertex AI `aiplatform.endpoints.predict` permission denied; no Maps batch was run.
 - Retried after the Cloud Shell IAM grant. The student account now visibly has `roles/aiplatform.user`, but the local ADK process still receives the same 403, indicating its Application Default Credentials are not the Cloud Shell/student identity or the lab model endpoint is separately restricted.
