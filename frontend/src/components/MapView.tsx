@@ -19,7 +19,7 @@ export const MapView: React.FC<MapViewProps> = ({
   const overlaysRef = useRef<any[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapsReady, setMapsReady] = useState(Boolean((window as any).google?.maps));
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const apiKey = ((window as any).__APP_CONFIG__?.googleMapsApiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY) as string | undefined;
 
   useEffect(() => {
     if (!apiKey) return;

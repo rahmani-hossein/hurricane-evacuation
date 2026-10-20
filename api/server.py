@@ -6,6 +6,7 @@ import base64
 from urllib.parse import quote_plus
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google.cloud import bigquery
@@ -704,10 +705,21 @@ def copilot_chat(req: QueryRequest):
                 detail=f"Unable to reach teammate Vertex AI Reasoning Engine ({engine_id}): {str(e)}"
             )
 
-# Mount static frontend build for single-container Cloud Run deployment
+# Serve the static shell with runtime configuration. Vite's import.meta.env values are
+# build-time only, while Cloud Run supplies the browser key as a runtime environment var.
 from fastapi.staticfiles import StaticFiles
 dist_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.exists(dist_dir):
+    @app.get("/", response_class=HTMLResponse)
+    def frontend_index():
+        index_path = os.path.join(dist_dir, "index.html")
+        with open(index_path, "r", encoding="utf-8") as index_file:
+            html = index_file.read()
+        runtime_config = json.dumps({
+            "googleMapsApiKey": os.environ.get("VITE_GOOGLE_MAPS_API_KEY", "")
+        }).replace("</", "<\\/")
+        return HTMLResponse(html.replace("</head>", f"<script>window.__APP_CONFIG__={runtime_config};</script></head>"))
+
     app.mount("/", StaticFiles(directory=dist_dir, html=True), name="frontend")
 
 if __name__ == "__main__":
