@@ -1,6 +1,6 @@
 """Custom analytical tools for the Florida Evacuation Readiness Agent.
 
-These tools query the BigQuery views in `evacuation_readiness` scoped to Lee County, FL (12071).
+These tools query the curated gold views in `evacuation_readiness_gold` scoped to Lee County, FL (12071).
 """
 
 from typing import List, Dict, Any
@@ -8,7 +8,7 @@ from google.cloud import bigquery
 import os
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-9fa9c7b57012")
-DATASET_ID = "evacuation_readiness"
+DATASET_ID = "evacuation_readiness_gold"
 
 def _get_bq_client() -> bigquery.Client:
     return bigquery.Client(project=PROJECT_ID)
@@ -30,13 +30,13 @@ def rank_stranded_tracts(top_n: int = 10) -> List[Dict[str, Any]]:
         geo_id,
         total_pop,
         households_no_vehicle,
-        ROUND(pct_no_vehicle * 100, 1) AS pct_no_vehicle,
-        ROUND(pct_age_65_plus * 100, 1) AS pct_age_65_plus,
-        ROUND(pct_disability * 100, 1) AS pct_disability,
-        ROUND(pct_mobile_homes * 100, 1) AS pct_mobile_homes,
+        ROUND(pct_no_vehicle, 1) AS pct_no_vehicle,
+        ROUND(pct_age_65_plus, 1) AS pct_age_65_plus,
+        ROUND(pct_disability, 1) AS pct_disability,
+        ROUND(pct_mobile_homes, 1) AS pct_mobile_homes,
         stranded_score,
         reachable_dist_m
-    FROM `{PROJECT_ID}.{DATASET_ID}.v_lee_tract_scores`
+    FROM `{PROJECT_ID}.{DATASET_ID}.lee_tract_risk`
     ORDER BY stranded_score DESC
     LIMIT @top_n
     """
@@ -69,7 +69,7 @@ def get_candidate_shelters(geo_id: str) -> List[Dict[str, Any]]:
         wheelchair_record,
         surge_record,
         km_straight_line
-    FROM `{PROJECT_ID}.{DATASET_ID}.v_lee_tract_shelter_pairs`
+    FROM `{PROJECT_ID}.{DATASET_ID}.lee_tract_shelter_options`
     WHERE tract_geo_id = @geo_id
     ORDER BY km_straight_line ASC
     """
@@ -105,7 +105,7 @@ def get_tract_access_state(geo_id: str) -> Dict[str, Any]:
         count_unrecorded,
         access_state,
         action_recommendation
-    FROM `{PROJECT_ID}.{DATASET_ID}.v_lee_tract_access_state`
+    FROM `{PROJECT_ID}.{DATASET_ID}.lee_tract_access_state`
     WHERE geo_id = @geo_id
     """
     job_config = bigquery.QueryJobConfig(
@@ -127,12 +127,12 @@ def get_county_power_dependence() -> Dict[str, Any]:
     client = _get_bq_client()
     query = f"""
     SELECT 
-        name AS county_name,
+        county_name,
         fips_code,
-        power_dependent_devices_dme AS power_dependent_residents,
-        facility_esrd_dialysis_any_dme AS dialysis_dependent,
-        o2_services_any_dme AS oxygen_dependent
-    FROM `{PROJECT_ID}.{DATASET_ID}.power_dependent_counties`
+        power_dependent_residents,
+        dialysis_dependent,
+        oxygen_dependent
+    FROM `{PROJECT_ID}.{DATASET_ID}.lee_county_power_dependence`
     WHERE fips_code = '12071'
     """
     job = client.query(query)
@@ -155,10 +155,10 @@ def run_equity_audit() -> List[Dict[str, Any]]:
         access_state,
         households_no_vehicle,
         median_income,
-        ROUND(poverty_rate * 100, 1) AS poverty_rate,
-        ROUND(pct_limited_english * 100, 1) AS pct_limited_english,
+        ROUND(poverty_rate, 1) AS poverty_rate,
+        ROUND(pct_limited_english, 1) AS pct_limited_english,
         svi_socioeconomic
-    FROM `{PROJECT_ID}.{DATASET_ID}.v_lee_equity_audit`
+    FROM `{PROJECT_ID}.{DATASET_ID}.lee_equity_audit`
     ORDER BY stranded_score DESC
     LIMIT 10
     """

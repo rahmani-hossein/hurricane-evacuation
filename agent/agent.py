@@ -123,6 +123,7 @@ For Miami-Dade County:
 - Always distinguish listed capacity from confirmed available capacity, straight-line distance from drive time, and unrecorded accessibility from inaccessible.
 """
 
+
 def create_evacuation_agent() -> Agent:
     """Builds and returns the Florida Evacuation Readiness Agent."""
     return Agent(
@@ -132,6 +133,7 @@ def create_evacuation_agent() -> Agent:
         instruction=COMBINED_INSTRUCTION,
         tools=ALL_TOOLS,
     )
+
 
 # Expose root_agent for ADK CLI & ADK Web UI loader
 root_agent = create_evacuation_agent()
@@ -166,11 +168,15 @@ class EvacuationAgentRunner:
                 new_message=content,
             )
         )
-        
-        output_parts = []
-        for event in events:
-            if event.content:
-                for part in event.content.parts:
-                    if part.text:
-                        output_parts.append(part.text)
-        return "".join(output_parts)
+        return "".join(
+            part.text
+            for event in events
+            if event.content
+            for part in event.content.parts
+            if part.text
+        )
+
+
+if __name__ == "__main__":
+    runner = EvacuationAgentRunner()
+    print(runner.query("Give me the top 3 stranded tracts in Lee County and summarize their access states."))

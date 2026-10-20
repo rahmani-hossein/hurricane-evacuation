@@ -1,12 +1,12 @@
-# BigQuery Data Views: Lee County Evacuation Readiness
+# BigQuery Gold Views: Lee County Evacuation Readiness
 
-This document explains the analytical views created in BigQuery under the dataset `evacuation_readiness` for **Lee County, Florida (`county_fips = '12071'`)**.
+This document explains the canonical analytical views created in BigQuery under the dataset `evacuation_readiness_gold` for **Lee County, Florida (`county_fips = '12071'`)**.
 
-These views bridge raw federal data tables with the operational needs of the AI Agent and the Emergency Manager, adhering to the data plan described in [`plan.md`](../plan.md).
+These views bridge the normalized staging tables with the operational needs of the AI Agent and the Emergency Manager. The raw `evacuation_readiness` tables are upstream evidence and should not be queried by ADK tools.
 
 ---
 
-## 1. `v_lee_tract_scores`
+## 1. `lee_tract_risk`
 
 ### Purpose
 Calculates the vulnerability and **Stranded Score** for all 223 census tracts in Lee County. It identifies the neighborhoods whose residents are least capable of self-evacuating.
@@ -38,7 +38,7 @@ Calculates the vulnerability and **Stranded Score** for all 223 census tracts in
 
 ---
 
-## 2. `v_lee_shelters`
+## 2. `lee_shelter_readiness`
 
 ### Purpose
 Filters and cleans registered shelters in Lee County that are eligible for pre-landfall evacuation, assigns surge zone indicators, and links each shelter to its geographically nearest census tract.
@@ -65,7 +65,7 @@ Filters and cleans registered shelters in Lee County that are eligible for pre-l
 
 ---
 
-## 3. `v_lee_tract_shelter_pairs`
+## 3. `lee_tract_shelter_options`
 
 ### Purpose
 Pre-computes candidate destination pairings between census tracts and reachable shelters based on straight-line spatial distance.
@@ -90,7 +90,7 @@ Pre-computes candidate destination pairings between census tracts and reachable 
 
 ---
 
-## 4. `v_lee_tract_access_state`
+## 4. `lee_tract_access_state`
 
 ### Purpose
 Classifies each census tract into an actionable operational category (States A, B, C, D) to guide emergency resource allocation and pre-season audits.
@@ -116,7 +116,7 @@ Classifies each census tract into an actionable operational category (States A, 
 
 ---
 
-## 5. `v_lee_equity_audit`
+## 5. `lee_equity_audit`
 
 ### Purpose
 Facilitates demographic and socioeconomic bias checks on the agent's ranking model by joining tract vulnerability rankings against socioeconomic baseline variables.
@@ -136,8 +136,8 @@ Facilitates demographic and socioeconomic bias checks on the agent's ranking mod
 
 | BigQuery View | Consuming Agent Function Tool in `agent/tools.py` |
 |---|---|
-| `v_lee_tract_scores` | `rank_stranded_tracts(top_n)` |
-| `v_lee_shelters` | `get_shelter_details(shelter_id)` |
-| `v_lee_tract_shelter_pairs` | `get_candidate_shelters(geo_id)` |
-| `v_lee_tract_access_state` | `get_tract_access_summary(geo_id)` |
-| `v_lee_equity_audit` | `run_equity_audit()` |
+| `lee_tract_risk` | `rank_stranded_tracts(top_n)` |
+| `lee_shelter_readiness` | `get_candidate_shelters(geo_id)` |
+| `lee_tract_shelter_options` | `get_candidate_shelters(geo_id)` |
+| `lee_tract_access_state` | `get_tract_access_state(geo_id)` |
+| `lee_equity_audit` | `run_equity_audit()` |

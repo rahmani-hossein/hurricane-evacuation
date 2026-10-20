@@ -1,4 +1,4 @@
-"""Deploy the Miami-Dade ADK agent to Vertex AI Agent Runtime."""
+"""Deploy the Lee County ADK agent to Vertex AI Agent Runtime."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def main() -> None:
 
     app = agent_engines.AdkApp(
         agent=root_agent,
-        app_name="miami_dade_hurricane_readiness",
+        app_name="lee_county_hurricane_readiness",
         enable_tracing=True,
     )
 
@@ -31,9 +31,9 @@ def main() -> None:
         agent_engine=app,
         requirements=str(repo_root / "requirements.txt"),
         extra_packages=[str(repo_root / "agent")],
-        display_name="Miami-Dade Hurricane Readiness",
+        display_name="Lee County Hurricane Readiness",
         description=(
-            "Planning-time Miami-Dade evacuation readiness agent using curated BigQuery evidence "
+            "Planning-time Lee County evacuation readiness agent using curated BigQuery evidence "
             "and Google Maps grounding."
         ),
         env_vars={
