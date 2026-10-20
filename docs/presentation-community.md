@@ -6,7 +6,7 @@ This six-slide HTML pitch is for the Lee County disaster-relief planning team. I
 
 ## Story and recommendation
 
-Recommendation: tell one visible story in six slides. Start with the human stake from Hurricane Ian, make the Lee County planning gap concrete, then show the plan assembling in real time:
+Recommendation: use the provided six-slide pitch template structure. Keep the three-slide HTML version separate for the under-three-minute recording; this handoff deck fills the required template sections:
 
 `risk zone → trusted local hub → peer volunteer → verified/appropriate shelter → resident plan`
 
@@ -32,15 +32,15 @@ The README scores impact and insight, technical execution including genuine Maps
 
 ## Final decision
 
-Use a light, warm, civic visual system rather than a dark product-dashboard theme. A generated Lee County community-planning image anchors the human opening: neighbors, an older resident, a caregiver, and a volunteer reviewing a map together before storm season. The hero interaction is a conversational agent demo on slide 3, styled like the supplied reference deck: the planner asks “What are my top risk spots?”, then clicks prompts for community groups, shelter unknowns, or medical needs and sees the grounded next action. Slides remain sparse enough to present, but carry enough explanation for a handoff.
+Use a light, warm, civic visual system rather than a dark product-dashboard theme, while mapping the content to the supplied template:
 
-1. **No one gets left behind** — Ian statistic, Lee County framing, community image.
-2. **Community is the multiplier** — Lee County evidence and why scarce resources require local capacity.
-3. **Ask the agent, then act locally** — an automatically animated conversation types the risk question, reveals the answer, and steps through follow-up prompts for community groups, shelter unknowns, and medical needs.
-4. **The planner’s brief becomes a community brief** — county actions and local outreach workflow.
-5. **Use Maps for the place; use people for the unknown** — grounding, limitations, and human validation.
-6. **The plan travels with the person** — actual Lee County command-center and Readiness Copilot captures, plus a CTA for county planners, hubs, volunteers, and residents.
+1. **Team name / project** — No One Left Behind, Lee County framing, community image.
+2. **Our Team** — names, emails, working roles, and submission/sharing fields.
+3. **Challenge Overview** — Ian statistic, county evidence, and who benefits.
+4. **Impact / Our Agent** — automatic grounded conversation from risk zone to community action.
+5. **Sources / outcome** — four actions, command-center evidence, Maps limits, and human validation.
+6. **Prototype Architecture** — manager → command center → ADK/Gemini agent → BigQuery, Maps, and community network.
 
 ## Validation notes
 
-Run the real HTML through a local server at desktop and mobile widths. Verify six snap slides, arrow/PageUp/PageDown/Space navigation, progress state, the automatic slide-3 typing/reveal/follow-up sequence, prompt buttons, role selection on slide 6, and the captured Lee County command-center / Readiness Copilot screens on slides 5–6. Check that the deck consistently says **Lee County**, that the local names and numbers match the repo, and that no slide treats public data as individual identification or Maps as proof of shelter accessibility.
+Run the real HTML through a local server at desktop and mobile widths. Verify exactly six snap slides, arrow/PageUp/PageDown/Space navigation, progress state, the automatic slide-4 typing/reveal/follow-up sequence, prompt buttons, and the captured Lee County command-center / Readiness Copilot screens on slides 5–6. Check that the deck consistently says **Lee County**, that the local names and numbers match the repo, and that no slide treats public data as individual identification or Maps as proof of shelter accessibility. The separate `presentation-community-v2.html` remains the three-slide recording cut.
