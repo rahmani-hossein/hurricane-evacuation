@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Lee County Copilot Panel Decision</title>
+  <style>
+    :root{--ink:#172033;--muted:#627087;--line:#dbe3ef;--bg:#f6f8fc;--blue:#155eef;--green:#087443}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,system-ui,sans-serif}
+    main{max-width:960px;margin:auto;padding:44px 24px 72px}.hero,.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 10px 30px #17396d0d}.hero{background:linear-gradient(135deg,#eef5ff,#fff)}
+    .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);font-weight:800}h1{font-size:38px;line-height:1.08;margin:10px 0}.lede{font-size:18px;color:var(--muted)}h2{font-size:22px;margin:34px 0 12px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card b{display:block;color:var(--blue);font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}.callout{border-left:5px solid var(--green);background:#ecfaf2;border-radius:12px;padding:17px 20px}li{margin:8px 0}code{background:#eef2f7;border-radius:4px;padding:2px 4px}@media(max-width:720px){main{padding:24px 15px}h1{font-size:32px}.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body><main>
+  <section class="hero"><div class="eyebrow">Product decision · Lee County</div><h1>Readiness Copilot panel</h1><p class="lede">Keep the map and brief visible while the Lee County agent answers questions in a persistent, follow-up-ready conversation surface.</p></section>
+  <h2>Context</h2><p>The previous blocking modal hid the command center, flattened Markdown into plain text, and offered no conversational continuity. The deployed map also lacked its JavaScript API key.</p>
+  <h2>Alternatives</h2><div class="grid"><div class="card"><b>1 · Modal polish</b>Minimal change; still interrupts planning and has no follow-ups.</div><div class="card"><b>2 · Side panel · Recommended</b>Persistent conversation, minimize/close, Markdown, follow-ups, and per-answer Maps links.</div><div class="card"><b>3 · Full-screen chat</b>Strong chat focus, but hides the map and readiness brief.</div></div>
+  <h2>Final decision</h2><div class="callout"><b>Use the non-blocking side panel.</b> Queries reuse <code>/api/copilot/chat</code>; Markdown renders headings, lists, emphasis, code, and links; Google Maps grounding links remain available per answer.</div>
+  <h2>Validation</h2><ul><li>Frontend production build passes.</li><li>Browser QA covered loading, Markdown, minimize/expand, follow-up, and place links.</li><li>Cloud Run health and Lee readiness endpoints return 200.</li><li>Voice WebSocket behavior remains unchanged.</li></ul>
+</main></body></html>

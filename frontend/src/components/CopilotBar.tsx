@@ -7,21 +7,14 @@ interface CopilotBarProps {
   selectedCounty?: string;
 }
 
-export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery, selectedCounty = 'Miami-Dade County' }) => {
+export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery, selectedCounty = 'Lee County' }) => {
   const [input, setInput] = useState('');
 
-  const isLee = selectedCounty.toLowerCase().includes('lee');
-
-  const quickPrompts = isLee ? [
+  const quickPrompts = [
     "What are the top 3 stranded tracts in Lee County?",
     "Candidate shelters within 2 km of Tract 12071020801",
     "How many residents rely on medical electricity (emPOWER)?",
     "State B verify-first checklist for unrecorded shelters"
-  ] : [
-    "Which shelters in Miami-Dade are in surge zone?",
-    "Find tracts with >400 zero-vehicle households",
-    "Audit unrecorded wheelchair status for high-capacity shelters",
-    "Where should we stage paratransit evacuation routes?"
   ];
 
   const handleSubmit = (e: React.FormEvent) => {

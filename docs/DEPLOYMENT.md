@@ -36,6 +36,27 @@ The team's web application (`https://hurricane-evacuation-command-851021919219.u
 
 ## 4. Local Development & Testing
 
+### Rebuild the command center with Google Maps
+
+The frontend Dockerfile accepts `VITE_GOOGLE_MAPS_API_KEY` as a build argument. Use the checked-in Cloud Build config so the key is passed explicitly into the Docker build; do not put it in Git or in the runtime browser environment:
+
+```bash
+set -a
+source frontend/.env.local
+set +a
+gcloud builds submit \
+  --config cloudbuild.yaml \
+  --substitutions="_VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY}" \
+  .
+
+gcloud run deploy hurricane-evacuation-command \
+  --image gcr.io/qwiklabs-gcp-04-9fa9c7b57012/hurricane-evacuation-command \
+  --region us-east1 \
+  --project qwiklabs-gcp-04-9fa9c7b57012
+```
+
+The key is baked into the Vite browser bundle during the image build, and the API key should be restricted in Google Cloud Console to the deployed command-center origin and Maps JavaScript API.
+
 Teammates working in Cloud Shell or locally can pull the branch:
 ```bash
 git fetch origin feature/agent-and-views

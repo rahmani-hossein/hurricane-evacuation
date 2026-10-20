@@ -38,7 +38,7 @@ except Exception as e:
 
 class QueryRequest(BaseModel):
     query: str
-    county: Optional[str] = "Miami-Dade County"
+    county: Optional[str] = "Lee County"
 
 @app.get("/api/health")
 def health():
@@ -634,18 +634,16 @@ def invoke_teammate_reasoning_engine(engine_id: str, message: str, user_id: str 
 @app.post("/api/copilot/chat")
 def copilot_chat(req: QueryRequest):
     user_query = req.query.strip()
-    county_name = req.county or "Miami-Dade County"
+    county_name = req.county or "Lee County"
 
     # Route query to the appropriate teammate's deployed Vertex AI Agent Engine
-    is_lee = "lee" in county_name.lower() or "lee" in user_query.lower()
-    engine_id = LEE_REASONING_ENGINE_ID if is_lee else MIAMI_REASONING_ENGINE_ID
-    active_county = "Lee County" if is_lee else "Miami-Dade County"
+    engine_id = LEE_REASONING_ENGINE_ID
+    active_county = "Lee County"
 
     try:
         agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
 
-        if is_lee:
-            sources = [
+        sources = [
                 {
                     "title": "Littleton Elementary School (Google Maps Verified)",
                     "uri": "https://maps.google.com/?q=700+Hutto+Rd,+North+Fort+Myers,+FL+33903"
@@ -659,17 +657,6 @@ def copilot_chat(req: QueryRequest):
                     "uri": "https://maps.google.com/?q=120+Pine+Island+Rd,+North+Fort+Myers,+FL+33903"
                 }
             ]
-        else:
-            sources = [
-                {
-                    "title": "Robert C. Morgan High School (Google Maps Verified)",
-                    "uri": "https://maps.google.com/?cid=ChIJt2Ah773D2YgRXrgXnbOxtbI"
-                },
-                {
-                    "title": "South Dade Middle School (Google Maps Verified)",
-                    "uri": "https://maps.google.com/?cid=ChIJ05VPfPjm2YgRowMsIrEudZg"
-                }
-            ]
 
         return {
             "answer": agent_answer,
@@ -681,29 +668,10 @@ def copilot_chat(req: QueryRequest):
         }
     except Exception as e:
         print(f"Error querying teammate Reasoning Engine ({engine_id}):", e)
-        # Attempt fallback to alternative reasoning engine if available
-        alt_engine = MIAMI_REASONING_ENGINE_ID if is_lee else LEE_REASONING_ENGINE_ID
-        try:
-            alt_answer = invoke_teammate_reasoning_engine(alt_engine, user_query)
-            return {
-                "answer": alt_answer,
-                "sources": [
-                    {
-                        "title": "FEMA Evacuation Registry Facility Grounding",
-                        "uri": "https://maps.google.com"
-                    }
-                ],
-                "is_ai_generated": True,
-                "model": "Vertex AI Reasoning Engine (gemini-3.6-flash / ADK Tools)",
-                "engine_id": alt_engine,
-                "county": active_county
-            }
-        except Exception as alt_err:
-            print("Both reasoning engines encountered error:", alt_err)
-            raise HTTPException(
-                status_code=502,
-                detail=f"Unable to reach teammate Vertex AI Reasoning Engine ({engine_id}): {str(e)}"
-            )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Unable to reach Lee County Vertex AI Reasoning Engine ({engine_id}): {str(e)}"
+        )
 
 # Serve the static shell with runtime configuration. Vite's import.meta.env values are
 # build-time only, while Cloud Run supplies the browser key as a runtime environment var.
