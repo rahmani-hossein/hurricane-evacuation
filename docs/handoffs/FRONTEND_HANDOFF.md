@@ -1,43 +1,111 @@
-# Frontend Command Center & Live Cloud Run Service Handoff
+# Frontend handoff: Lee County Hurricane Readiness
 
-## 🌐 Live Production URL
-**Cloud Run URL:** [https://hurricane-evacuation-command-851021919219.us-east1.run.app](https://hurricane-evacuation-command-851021919219.us-east1.run.app)
+## Goal
 
-- **Region:** `us-east1`
-- **Min Instances:** `1` (Zero cold start during judging presentation)
-- **Status:** Active, serving 100% traffic, publicly accessible with no login required.
+Connect the coordinator web UI to the deployed Lee County ADK agent through a server-side proxy, while keeping map and table views backed by the canonical BigQuery gold contract.
 
----
+## Canonical runtime
 
-## 🎯 Compliance with Hackathon Criteria & Guidelines
+| Setting | Value |
+|---|---|
+| County | Lee County, Florida |
+| County FIPS | `12071` |
+| Project | `qwiklabs-gcp-04-9fa9c7b57012` |
+| Region | `us-east1` |
+| Agent Runtime resource | `projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104` |
+| Model | `gemini-3.6-flash` |
 
-1. **Required Deployment to Google Cloud (README line 269):**
-   - Deployed to Google Cloud Run as a single unified container containing both the Vite/React UI and the FastAPI ADK agent bridge.
-2. **Attribution Requirement (README line 487):**
-   - Features full Google Maps attribution with unmodified casing, `<span translate="no">Google Maps</span>`, and 1-click links to Place IDs.
-3. **The Readiness Brief Deliverable (README lines 528-544):**
-   - **Segment 1: Who Cannot Leave:** Ranks vulnerable tracts (e.g. Tract 9807.00 Homestead) by ACS mobility proxy (zero vehicles, mobile homes, age).
-   - **Segment 2: Where They Would Go:** Lists candidate destinations, capacities, generator status, surge hazard check, and batch Maps place validation.
-   - **Segment 3: August Action Directives:** Concrete pre-season directives (staging paratransit, ramp inspection audits before Sept 1, medical microgrid backup).
-4. **Data Integrity & Language Contract (ADK_HANDOFF.md):**
-   - Strictly distinguishes *"listed capacity"* from confirmed available capacity.
-   - Strictly distinguishes *"straight-line distance"* from drive time.
-   - Strictly distinguishes *"accessibility unrecorded"* (95.4% in Miami-Dade) from inaccessible.
-   - Strictly states *"candidate needs current verification"* instead of claiming shelters are currently open.
+The older Miami-Dade-oriented frontend deployment is not the canonical agent for this PR. Use the Lee County runtime above.
 
----
+## Connection pattern
 
-## 🛠️ Local Development (For Teammates)
+The browser must call our application backend; never put Google credentials, ADC, or an Agent Runtime access token in browser code.
 
-If running locally in Cloud Shell:
-```bash
-# 1. Start the API
-export GOOGLE_CLOUD_PROJECT=qwiklabs-gcp-04-9fa9c7b57012
-python3 -m uvicorn api.server:app --host 0.0.0.0 --port 8000 &
+```python
+import vertexai
+from vertexai import agent_engines
 
-# 2. Start Frontend
-cd frontend
-npm install
-npm run dev -- --host 0.0.0.0 --port 8080
+vertexai.init(project="qwiklabs-gcp-04-9fa9c7b57012", location="us-east1")
+engine = agent_engines.get(
+    "projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104"
+)
+session = engine.create_session(user_id="coordinator_web")
+session_id = session.get("id") if isinstance(session, dict) else session.id
+events = engine.stream_query(
+    message=user_query, user_id="coordinator_web", session_id=session_id
+)
 ```
-Then use Web Preview on Port 8080.
+
+REST endpoints:
+
+```text
+https://us-east1-aiplatform.googleapis.com/v1/projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104:query
+https://us-east1-aiplatform.googleapis.com/v1/projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104:streamQuery
+```
+
+Expose a small app API such as `POST /api/copilot/chat`; the browser sends the user message plus selected `geo_id`, and the backend forwards the request to Agent Runtime.
+
+## Recommended app API
+
+These routes should query `evacuation_readiness_gold` only:
+
+```text
+GET  /api/lee/overview
+GET  /api/lee/priority-tracts?limit=10
+GET  /api/lee/shelter-options?geo_id=12071020801&limit=20
+GET  /api/lee/access-state?geo_id=12071020801
+POST /api/copilot/chat
+```
+
+Suggested response envelope:
+
+```json
+{"county":"Lee County","county_fips":"12071","snapshot_at":"2026-10-20T00:00:00Z","rows":[]}
+```
+
+Priority tract fields: `geo_id`, `total_pop`, `households_no_vehicle`, `pct_no_vehicle`, `pct_age_65_plus`, `pct_disability`, `pct_mobile_homes`, `stranded_score`, `reachable_dist_m`, `lat`, `lon`.
+
+Shelter option fields: `tract_geo_id`, `shelter_id`, `shelter_name`, `address_1`, `city`, `shelter_lat`, `shelter_lon`, `evacuation_capacity`, `wheelchair_record`, `surge_record`, `km_straight_line`, `readiness_score`, `readiness_confidence`, `data_quality_status`.
+
+Access-state fields: `geo_id`, `access_state`, `total_reachable_shelters`, `count_yes`, `count_no`, `count_unrecorded`, `action_recommendation`.
+
+Do not reintroduce `frontend/src/mock/readinessData.ts` or query raw tables from the UI. The gold views are the normalized, county-scoped agent contract.
+
+## Map behavior
+
+- Center on Lee County and draw tract circles from `lee_tract_risk`.
+- Size or intensity circles with `stranded_score`.
+- When a tract is selected, draw candidate shelter connections from `lee_tract_shelter_options` and label straight-line distance.
+- Show `YES`, `NO`, and `UNRECORDED` accessibility distinctly.
+- Treat `readiness_confidence` and `data_quality_status` as planning confidence, not live operational status.
+- Show a Google Maps link only for the actual place returned by Maps verification.
+
+| State | Visual | Meaning | UI action |
+|---|---|---|---|
+| A | Green | Recorded accessible destination exists | Verify current operations |
+| B | Amber | Accessibility is unrecorded | Verify first |
+| C | Red | Recorded options are not accessible | Find an alternate |
+| D | Violet/red | No accessible option is reachable | Plan transit or pickup |
+
+## Starter prompts
+
+```text
+What are the top 3 stranded tracts in Lee County and their access states?
+Which shelters are candidates for tract 12071020801, and what must be verified?
+Which tracts need a dedicated transit pickup point before landfall?
+How many Lee County residents depend on electricity for medical equipment?
+Verify Dr. Carrie D. Robinson Littleton Elementary School at 700 Hutto Rd, North Fort Myers using Google Maps.
+Run an equity audit on the top stranded tracts.
+```
+
+## Safety and acceptance contract
+
+- Accessibility being unrecorded does not mean inaccessible.
+- Listed capacity is not the same as available beds.
+- State A does not mean a shelter is open now.
+- Mobility and medical-power measures are planning proxies; they do not identify individuals.
+- Google Maps evidence does not prove shelter opening, bed availability, medical capability, generator status, or ADA compliance.
+- Keep the selected tract ID in map, table, and conversation context.
+- Test a State B tract and a State D tract.
+- Empty shelter options must produce a transit-gap message, not a false “no risk” result.
+

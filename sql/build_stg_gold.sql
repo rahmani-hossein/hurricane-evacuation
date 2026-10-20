@@ -98,7 +98,9 @@ SELECT
   LPAD(REGEXP_REPLACE(CAST(COALESCE(fips_code_recode, fips_code, CONCAT(state_fips_code, county_fips_code)) AS STRING), r'[^0-9]', ''), 5, '0') AS county_fips,
   ANY_VALUE(COALESCE(county, name, namelsad)) AS county_name,
   ANY_VALUE(state) AS state,
-  MAX(power_dependent_dme) AS power_dependent_dme,
+  MAX(COALESCE(power_dependent_devices_dme, power_dependent_dme)) AS power_dependent_dme,
+  MAX(facility_esrd_dialysis_any_dme) AS dialysis_dependent,
+  MAX(o2_services_any_dme) AS oxygen_dependent,
   MAX(any_healthcare_srvc_any_dme) AS healthcare_services_power_dependent,
   LOGICAL_OR(power_dependent_is_censored) AS is_censored
 FROM `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness.power_dependent_counties`
@@ -256,3 +258,148 @@ FROM `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.county_risk_snapsho
 JOIN `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.miami_dade_tract_mobility_proxy` m USING (county_fips)
 WHERE r.county_fips = '12086'
 GROUP BY ALL;
+
+-- Lee County operational agent products.
+-- These gold views preserve the feature/agent-and-views logic while keeping raw
+-- source tables behind the staging and gold boundary. Percent fields use the
+-- canonical 0-100 convention established in stg.vulnerability_tracts.
+CREATE OR REPLACE VIEW `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_tract_risk` AS
+WITH ranked AS (
+  SELECT
+    t.geo_id,
+    t.county_fips5 AS county_fips,
+    t.total_pop,
+    t.households,
+    t.households_no_vehicle,
+    t.pct_no_vehicle,
+    t.pct_age_65_plus,
+    t.pct_disability,
+    t.pct_mobile_homes,
+    t.lat,
+    t.lon,
+    t.point,
+    PERCENT_RANK() OVER (ORDER BY COALESCE(t.pct_no_vehicle, 0)) AS rk_no_vehicle,
+    PERCENT_RANK() OVER (ORDER BY COALESCE(t.pct_age_65_plus, 0)) AS rk_age_65,
+    PERCENT_RANK() OVER (ORDER BY COALESCE(t.pct_disability, 0)) AS rk_disability,
+    PERCENT_RANK() OVER (ORDER BY COALESCE(t.pct_mobile_homes, 0)) AS rk_mobile_homes
+  FROM `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_stg.vulnerability_tracts` t
+  WHERE t.county_fips5 = '12071' AND t.total_pop > 0
+)
+SELECT
+  *,
+  ROUND((rk_no_vehicle + rk_age_65 + rk_disability + rk_mobile_homes) / 4.0, 4) AS stranded_score,
+  CASE WHEN rk_no_vehicle >= 0.75 THEN 2000.0 ELSE 25000.0 END AS reachable_dist_m,
+  CURRENT_TIMESTAMP() AS snapshot_at,
+  'Lee County (FIPS 12071); percentile composite of no-vehicle, age 65+, disability, and mobile-home rates' AS methodology_note
+FROM ranked;
+
+CREATE OR REPLACE VIEW `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_shelter_readiness` AS
+SELECT
+  s.shelter_id,
+  s.shelter_name,
+  s.address_1,
+  s.city,
+  s.zip5 AS zip,
+  s.latitude,
+  s.longitude,
+  s.point AS shelter_point,
+  s.county_fips,
+  s.evacuation_capacity,
+  s.post_impact_capacity,
+  s.usage_status AS usage,
+  UPPER(s.wheelchair_accessible_status) AS wheelchair_record,
+  s.generator_status,
+  UPPER(s.surge_status) AS surge_record,
+  s.is_medical,
+  s.readiness_score,
+  s.readiness_confidence,
+  s.data_quality_status
+FROM `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.shelter_readiness_snapshot` s
+WHERE s.county_fips = '12071'
+  AND s.usage_status IN ('EVAC', 'BOTH')
+  AND s.surge_status != 'yes';
+
+CREATE OR REPLACE VIEW `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_tract_shelter_options` AS
+SELECT
+  t.geo_id AS tract_geo_id,
+  t.county_fips,
+  t.stranded_score,
+  t.reachable_dist_m,
+  s.shelter_id,
+  s.shelter_name,
+  s.address_1,
+  s.city,
+  s.evacuation_capacity,
+  s.wheelchair_record,
+  s.surge_record,
+  s.latitude AS shelter_lat,
+  s.longitude AS shelter_lon,
+  ROUND(ST_DISTANCE(t.point, s.shelter_point) / 1000.0, 2) AS km_straight_line,
+  s.readiness_score,
+  s.readiness_confidence,
+  s.data_quality_status
+FROM `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_tract_risk` t
+JOIN `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_shelter_readiness` s
+  ON ST_DWITHIN(t.point, s.shelter_point, t.reachable_dist_m);
+
+CREATE OR REPLACE VIEW `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_tract_access_state` AS
+WITH counts AS (
+  SELECT
+    t.geo_id,
+    t.stranded_score,
+    t.total_pop,
+    t.households_no_vehicle,
+    t.reachable_dist_m,
+    COUNT(o.shelter_id) AS total_reachable_shelters,
+    COUNTIF(o.wheelchair_record = 'YES') AS count_yes,
+    COUNTIF(o.wheelchair_record = 'NO') AS count_no,
+    COUNTIF(o.wheelchair_record = 'UNRECORDED') AS count_unrecorded
+  FROM `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_tract_risk` t
+  LEFT JOIN `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_tract_shelter_options` o
+    ON t.geo_id = o.tract_geo_id
+  GROUP BY 1, 2, 3, 4, 5
+)
+SELECT
+  *,
+  CASE
+    WHEN count_yes > 0 THEN 'A'
+    WHEN count_unrecorded > 0 THEN 'B'
+    WHEN count_no > 0 THEN 'C'
+    ELSE 'D'
+  END AS access_state,
+  CASE
+    WHEN count_yes > 0 THEN 'Recorded wheelchair destination within reach'
+    WHEN count_unrecorded > 0 THEN 'Shelters within reach, but wheelchair status unrecorded (VERIFY FIRST)'
+    WHEN count_no > 0 THEN 'Shelters within reach, but all recorded not accessible'
+    ELSE 'No eligible evacuation shelter within reach (TRANSIT PICKUP NEEDED)'
+  END AS action_recommendation,
+  CURRENT_TIMESTAMP() AS snapshot_at
+FROM counts;
+
+CREATE OR REPLACE VIEW `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_equity_audit` AS
+SELECT
+  a.geo_id,
+  a.stranded_score,
+  a.access_state,
+  a.households_no_vehicle,
+  v.median_income,
+  v.poverty_rate,
+  v.pct_limited_english,
+  v.pct_no_internet,
+  v.svi_socioeconomic,
+  CURRENT_TIMESTAMP() AS snapshot_at
+FROM `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_tract_access_state` a
+JOIN `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_stg.vulnerability_tracts` v USING (geo_id);
+
+CREATE OR REPLACE VIEW `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_gold.lee_county_power_dependence` AS
+SELECT
+  county_name,
+  county_fips AS fips_code,
+  power_dependent_dme AS power_dependent_residents,
+  dialysis_dependent,
+  oxygen_dependent,
+  state,
+  is_censored,
+  CURRENT_TIMESTAMP() AS snapshot_at
+FROM `qwiklabs-gcp-04-9fa9c7b57012.evacuation_readiness_stg.power_dependent_counties`
+WHERE county_fips = '12071';
