@@ -51,8 +51,9 @@ only when they are all search tools."
 tool in one ADK agent, run end to end, both firing in a single turn. The same request on
 `gemini-2.5-flash` still returns the 400.
 
-**Use a 3.x model and keep one agent.** If you pin an older one, you need two, and it is a fine
-architecture either way:
+**This deployment uses Gemini 2.5 because that is what the hackathon project exposes.** The root
+agent keeps the BigQuery/function tools, while Maps and Search are isolated in ADK sub-agents and
+wrapped with `AgentTool`:
 
 - a **maps agent** holding `google_maps_grounding` and nothing else
 - your **root agent** holding your function tools, an MCP server, and the maps agent wrapped in
