@@ -564,8 +564,18 @@ def get_lee_readiness():
         raise HTTPException(status_code=500, detail=str(e))
 
 # Teammates' Deployed Vertex AI Reasoning Engines
-LEE_REASONING_ENGINE_ID = "projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104"
-MIAMI_REASONING_ENGINE_ID = "projects/851021919219/locations/us-east1/reasoningEngines/1188724901742116864"
+# 5276937832231862272: Latest deployed Lee County agent (FRONTEND_HANDOFF.md) with Search/Maps grounding
+# 7330860737289519104: Hossein's initial Lee County agent
+# 1188724901742116864: Julian's Miami-Dade agent
+LEE_REASONING_ENGINE_ID = os.environ.get(
+    "LEE_REASONING_ENGINE_ID",
+    "projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272"
+)
+LEE_FALLBACK_REASONING_ENGINE_ID = "projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104"
+MIAMI_REASONING_ENGINE_ID = os.environ.get(
+    "MIAMI_REASONING_ENGINE_ID",
+    "projects/851021919219/locations/us-east1/reasoningEngines/1188724901742116864"
+)
 
 def invoke_teammate_reasoning_engine(engine_id: str, message: str, user_id: str = "dashboard_user") -> str:
     """Invokes the teammate's deployed Vertex AI Reasoning Engine using the official REST execution endpoint."""
@@ -640,8 +650,15 @@ def copilot_chat(req: QueryRequest):
     active_county = "Lee County" if is_lee else "Miami-Dade County"
 
     try:
-        agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
-
+        try:
+            agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
+        except Exception as primary_err:
+            if is_lee and engine_id != LEE_FALLBACK_REASONING_ENGINE_ID:
+                print(f"Primary Lee engine {engine_id} failed: {primary_err}. Trying fallback {LEE_FALLBACK_REASONING_ENGINE_ID}...")
+                engine_id = LEE_FALLBACK_REASONING_ENGINE_ID
+                agent_answer = invoke_teammate_reasoning_engine(engine_id, user_query)
+            else:
+                raise primary_err
         if is_lee:
             sources = [
                 {
@@ -673,7 +690,7 @@ def copilot_chat(req: QueryRequest):
             "answer": agent_answer,
             "sources": sources,
             "is_ai_generated": True,
-            "model": "Vertex AI Reasoning Engine (gemini-3.6-flash / ADK Tools)",
+            "model": "Vertex AI Reasoning Engine (ADK Tools & BigQuery Grounded)",
             "engine_id": engine_id,
             "county": active_county
         }
