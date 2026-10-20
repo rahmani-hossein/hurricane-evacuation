@@ -16,6 +16,25 @@ The outreach use case is exposed through `find_outreach_candidates` and the dedi
 uses grounded search to find and verify nearby community partners. Search results are leads, not
 proof of activation or willingness to deploy.
 
+## Key Assumptions & Data Realities for the Emergency Manager
+
+1. **Capacity 0 is a Paperwork / Floor-Plan Deficit (Not Building Incapacity)**:
+   - In official FEMA/County registry records (`evacuation_readiness_gold.lee_shelter_readiness`), **27 out of 100 Lee County shelters** have `evacuation_capacity = 0` or NULL (15 explicitly flagged as `capacity_unverified`), such as **Dr. Carrie D. Robinson Littleton Elementary School** (Shelter ID 134167).
+   - This occurs when emergency authorities have earmarked a facility as an eligible pre-landfall evacuation destination (`usage = 'EVAC'`), but have not completed an official cot allocation survey or Red Cross floor-plan quota.
+   - **Emergency Manager Action:** The agent automatically flags these shelters under the **State B Verify-First Inspection Priorities** so that county planners and Red Cross liaisons can conduct physical space assessments and assign cot quotas before hurricane landfall.
+
+2. **Grounding with Google Maps vs Administrative Records**:
+   - Google Maps resolves facility existence, legal name expansions (e.g., short name "Littleton Elementary" -> full name "Dr. Carrie D. Robinson Littleton Elementary School"), active status, physical street address corrections, and physical ADA amenities (entrances, parking, restrooms).
+   - **Google Maps does NOT store emergency cot quotas or hurricane capacity numbers**; those remain administrative emergency management metrics.
+   - When the agent sees a capacity of 0, it grounds the building in Google Maps to prove the facility is physically active, and flags the capacity discrepancy as an administrative verification requirement for the emergency manager.
+
+3. **Unrecorded Accessibility is Never "No"**:
+   - 93% of shelters in Lee County have unrecorded wheelchair accessibility paperwork in the historical registry.
+   - The agent never treats missing paperwork as inaccessibility; instead, it uses Google Maps physical attributes (entrance, parking, restroom) to cross-examine and flags the facility for physical pre-season inspection.
+
+4. **Surge Hazard Exclusions**:
+   - Shelters confirmed inside SLOSH storm surge inundation zones (e.g., Dunbar High School) are excluded from pre-landfall intake to prevent staging evacuees in flood hazard areas.
+
 We built the on-ramp: every registered shelter in your state with capacity and accessibility, the
 census tracts around them with disability, vehicle access and age, the counties where people depend
 on electricity for medical equipment, hurricane and coastal-flood exposure per tract, and a

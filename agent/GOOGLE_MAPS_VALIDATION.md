@@ -28,14 +28,19 @@ When validating evacuation shelters in Lee County, FL, always distinguish betwee
   * Finding: Despite being flagged as not accessible in the FEMA registry, live Maps confirms full physical ADA accessibility.
 
 ### 2. Dr. Carrie D. Robinson Littleton Elementary School
-* **FEMA Registry Record:**
-  * ID: `134167` | Usage: `EVAC`
+* **FEMA / County Registry Record:**
+  * ID: `134167` | Registered Name: `Littleton Elementary School` | Usage: `EVAC`
   * Distance: `0.84 km` straight-line from Tract `12071020801` (Top Stranded Tract)
-  * FEMA Capacity: `0 / Unrecorded` | Wheelchair Status: `UNRECORDED`
+  * FEMA Capacity: `0.0` (Flagged as `capacity_unverified`) | Wheelchair Status: `UNRECORDED`
 * **Google Maps Grounding Verification:**
-  * Operating as active elementary school at `700 Hutto Rd, North Fort Myers, FL 33903`.
+  * Grounded Venue Name: **Dr. Carrie D. Robinson Littleton Elementary School** (Resolved full official name).
+  * Operating Status: Active public elementary school at `700 Hutto Rd, North Fort Myers, FL 33903`.
   * Physical ADA: Accessible entrance and accessible parking lot confirmed.
-  * Recommendation: Pre-season inspection team must finalize official shelter capacity before September 1.
+* **Why Capacity is 0 in Official Records:**
+  * In the FEMA National Shelter System, 27 of 100 Lee County shelters record capacity as 0 or NULL. This reflects missing administrative paperwork / floor-plan surveys rather than building incapacity.
+  * Google Maps provides place existence, name corrections, and accessibility amenities, but does not track emergency cot quotas.
+* **Emergency Manager Action:**
+  * Place on **State B Priority Checklist**. Dispatch county shelter liaisons or Red Cross coordinators before September 1 to calculate indoor cot allocation and update county registry files.
 
 ### 3. J. Colin English Elementary School
 * **FEMA Registry Record:**
