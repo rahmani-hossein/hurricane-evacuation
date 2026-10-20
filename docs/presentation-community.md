@@ -2,7 +2,7 @@
 
 ## Context
 
-This six-slide HTML pitch is for the Lee County disaster-relief planning team. It frames the product as a county capability for preparedness: identify the people and places most likely to be missed, organize trusted local partners around them, ground shelter records with Maps, and keep a human fallback for what the data cannot know.
+This six-slide pitch is for the Lee County disaster-relief planning team. The final submission deck is the PowerPoint export based on the provided Agents for Impact template; `presentation-community.html` remains the interactive browser companion. It frames the product as a county capability for preparedness: identify the people and places most likely to be missed, organize trusted local partners around them, ground shelter records with Maps, and keep a human fallback for what the data cannot know.
 
 ## Story and recommendation
 
@@ -43,4 +43,4 @@ Use a light, warm, civic visual system rather than a dark product-dashboard them
 
 ## Validation notes
 
-Run the real HTML through a local server at desktop and mobile widths. Verify exactly six snap slides, arrow/PageUp/PageDown/Space navigation, progress state, the automatic slide-4 typing/reveal/follow-up sequence, prompt buttons, and the captured Lee County command-center / Readiness Copilot screens on slides 5–6. Check that the deck consistently says **Lee County**, that the local names and numbers match the repo, and that no slide treats public data as individual identification or Maps as proof of shelter accessibility. The separate `presentation-community-v2.html` remains the three-slide recording cut.
+Run the real HTML through a local server at desktop and mobile widths. Verify exactly six snap slides, arrow/PageUp/PageDown/Space navigation, progress state, the automatic slide-4 typing/reveal/follow-up sequence, prompt buttons, and the captured Lee County command-center / Readiness Copilot screens on slides 5–6. Check that the deck consistently says **Lee County**, that the local names and numbers match the repo, and that no slide treats public data as individual identification or Maps as proof of shelter accessibility. The final PowerPoint deliverable is `No-One-Left-Behind-Lee-County.pptx`; the separate `presentation-community-v2.html` remains the three-slide recording cut.
