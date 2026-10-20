@@ -6,7 +6,7 @@ This presentation frames Adaptive Evacuation Operations as a community capabilit
 
 ## Story and recommendation
 
-Recommendation: present the product as a loop between planning and community action. The county planner identifies priority areas, then works with the agent to find trusted nonprofits, libraries, volunteer centers, community centers, faith groups, and neighborhood networks nearby. Those partners help recruit peer volunteers and spread awareness of Neighbor Lift. Their capacity and gaps feed back into the next Readiness Brief.
+Recommendation: tell one story in six slides. Start with the human stake, explain why static planning breaks, then show how the agent turns risk areas into outreach hotspots, peer capacity, and a more redundant execution plan. The planner identifies priority areas, finds trusted nonprofits, libraries, volunteer centers, community centers, faith groups, and neighborhood networks nearby, then works with those partners to recruit volunteers and spread awareness of Neighbor Lift.
 
 The central message is that a readiness plan should be judged by whether it works for people who cannot simply get in a car and leave. Public data can identify pressure at census-tract level without naming individuals. The system should never infer individual medical status or treat an unrecorded field as a negative.
 
@@ -31,12 +31,12 @@ The challenge scores impact and insight (30), technical execution including genu
 
 Use a 6-slide HTML presentation:
 
-1. Title and human stakes, with the team photo of the Challenge 04 brief
-2. The planning and community loop
-3. The human problem and local evidence
-4. What the agent does for the planner
-5. The demo handoff: risk area, local partners, and peer brief placeholders
-6. Partnering, call to action, and local entry points
+1. Human stake: “No one gets left behind” and the median age in the seventies
+2. The gap: scarce resources, non-self-evacuating households, incomplete shelter records
+3. The approach: risk zones become outreach hotspots and peer capacity
+4. The agent’s role: one brief connects risk, outreach, grounding, and action
+5. Limitations and workarounds: human validation, consent, voice support, routing, and redundancy
+6. Invitation: local partners help make Neighbor Lift real
 
 The tone should be warm, direct, and civic rather than dashboard-like. Use the existing repo visual language: deep plum, coral/pink, warm amber, pale lavender, and legible high-contrast typography. Keep copy sparse. Use simple visual markers for transport, accessibility, power, people, and community. Reserve full text for the speaker rather than the slide.
 
