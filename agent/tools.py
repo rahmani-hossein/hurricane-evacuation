@@ -51,27 +51,32 @@ def get_candidate_shelters(geo_id: str) -> List[Dict[str, Any]]:
     
     Only returns shelters where usage IN ('EVAC', 'BOTH') and that are outside confirmed surge zones.
     Preserves distinct wheelchair records: 'YES', 'NO', or 'UNRECORDED'.
+    Returns tract origin coordinates (tract_lat, tract_lon) and shelter addresses so Google Maps
+    can verify real-time driving/walking distance, availability, and physical accessibility.
     
     Args:
         geo_id: 11-digit Census tract ID (e.g., '12071020801').
     
     Returns:
-        List of candidate shelters with distance in km, wheelchair_record, and capacity.
+        List of candidate shelters with distance in km, tract_lat, tract_lon, wheelchair_record, and capacity.
     """
     client = _get_bq_client()
     query = f"""
     SELECT 
-        shelter_id,
-        shelter_name,
-        address_1,
-        city,
-        evacuation_capacity,
-        wheelchair_record,
-        surge_record,
-        km_straight_line
-    FROM `{PROJECT_ID}.{DATASET_ID}.lee_tract_shelter_options`
-    WHERE tract_geo_id = @geo_id
-    ORDER BY km_straight_line ASC
+        s.shelter_id,
+        s.shelter_name,
+        s.address_1,
+        s.city,
+        s.evacuation_capacity,
+        s.wheelchair_record,
+        s.surge_record,
+        s.km_straight_line,
+        r.lat AS tract_lat,
+        r.lon AS tract_lon
+    FROM `{PROJECT_ID}.{DATASET_ID}.lee_tract_shelter_options` s
+    JOIN `{PROJECT_ID}.{DATASET_ID}.lee_tract_risk` r ON s.tract_geo_id = r.geo_id
+    WHERE s.tract_geo_id = @geo_id
+    ORDER BY s.km_straight_line ASC
     """
     job_config = bigquery.QueryJobConfig(
         query_parameters=[bigquery.ScalarQueryParameter("geo_id", "STRING", geo_id)]
