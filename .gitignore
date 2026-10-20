@@ -24,3 +24,7 @@ Thumbs.db
 data/*.parquet
 data/*.csv
 data/*.csv.gz
+
+# ADK runtime local state
+.adk/
+agent/.adk/
