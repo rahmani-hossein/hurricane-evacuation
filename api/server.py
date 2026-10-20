@@ -134,6 +134,7 @@ def get_county_readiness():
                 "lat": float(t.get("lat")),
                 "lon": float(t.get("lon")),
                 "distanceToShelterKm": round(float(t.get("mobility_proxy_score") or 10) * 0.15, 1),
+                "riskScore": round(score, 2),
                 "riskTier": tier
             })
 

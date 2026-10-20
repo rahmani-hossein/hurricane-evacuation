@@ -1,5 +1,4 @@
-import React, { useEffect, useRef } from 'react';
-import L from 'leaflet';
+import React, { useEffect, useRef, useState } from 'react';
 import { CountyReadinessData, ShelterCandidate, VulnerableTract } from '../mock/readinessData';
 
 interface MapViewProps {
@@ -16,179 +15,81 @@ export const MapView: React.FC<MapViewProps> = ({
   onSelectTract
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const overlaysRef = useRef<any[]>([]);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [mapsReady, setMapsReady] = useState(Boolean((window as any).google?.maps));
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+
+  useEffect(() => {
+    if (!apiKey) return;
+    if ((window as any).google?.maps) { setMapsReady(true); return; }
+    const scriptId = 'google-maps-javascript-api';
+    const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener('load', () => setMapsReady(true), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.async = true;
+    script.defer = true;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
+    script.onload = () => setMapsReady(true);
+    script.onerror = () => setMapError('Google Maps could not load. Check the API key, billing, and Maps JavaScript API access.');
+    document.head.appendChild(script);
+  }, [apiKey]);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
+    if (!apiKey) { setMapError('Add VITE_GOOGLE_MAPS_API_KEY to frontend/.env.local to render the live map.'); return; }
+    if (!mapsReady || !(window as any).google?.maps) { setMapError(apiKey ? 'Loading Google Maps…' : null); return; }
 
+    const googleMaps = (window as any).google.maps;
     if (!mapInstanceRef.current) {
-      // Initialize map centered on Lee County (Fort Myers / Cape Coral / Sanibel)
-      const map = L.map(mapContainerRef.current, {
-        center: [26.58, -81.95],
-        zoom: 11,
-        zoomControl: true,
+      mapInstanceRef.current = new googleMaps.Map(mapContainerRef.current, {
+        center: { lat: data.county.includes('Lee') ? 26.58 : 25.76, lng: data.county.includes('Lee') ? -81.95 : -80.19 },
+        zoom: 10,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        clickableIcons: false,
       });
-
-      // Dark / modern operational basemap
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19
-      }).addTo(map);
-
-      const markersGroup = L.layerGroup().addTo(map);
-      markersLayerRef.current = markersGroup;
-      mapInstanceRef.current = map;
     }
 
     const map = mapInstanceRef.current;
-    const markersGroup = markersLayerRef.current;
-    if (!map || !markersGroup) return;
+    overlaysRef.current.forEach((overlay) => overlay.setMap(null));
+    overlaysRef.current = [];
+    const bounds = new googleMaps.LatLngBounds();
+    const riskColor: Record<string, string> = { CRITICAL: '#ef4444', HIGH: '#f97316', MODERATE: '#f59e0b' };
+    const infoWindow = new googleMaps.InfoWindow();
+    const openInfo = (position: { lat: number; lng: number }, html: string) => { infoWindow.setPosition(position); infoWindow.setContent(html); infoWindow.open({ map }); };
 
-    markersGroup.clearLayers();
+    data.tracts.forEach((tract) => {
+      const color = riskColor[tract.riskTier] || riskColor.MODERATE;
+      const position = { lat: tract.lat, lng: tract.lon };
+      const circle = new googleMaps.Circle({ map, center: position, radius: tract.riskTier === 'CRITICAL' ? 1050 : tract.riskTier === 'HIGH' ? 850 : 650, fillColor: color, fillOpacity: 0.28, strokeColor: color, strokeOpacity: 0.95, strokeWeight: 2, zIndex: tract.riskTier === 'CRITICAL' ? 3 : 2 });
+      circle.addListener('click', () => { onSelectTract?.(tract); openInfo(position, `<div style="font:13px system-ui;min-width:220px"><strong>${tract.name}</strong><div style="margin-top:6px;color:${color};font-weight:700">${tract.riskTier} · Gold score ${tract.riskScore ?? 'n/a'}</div><div style="margin-top:6px">${tract.householdsNoVehicle.toLocaleString()} no-vehicle households (${tract.pctNoVehicle}%)<br/>${tract.pctAge65Plus}% age 65+ · ${tract.distanceToShelterKm} km to shelter</div></div>`); });
+      overlaysRef.current.push(circle); bounds.extend(position);
 
-    // Dynamically re-center map to the current jurisdiction
-    if (data.shelters.length > 0) {
-      const bounds = L.latLngBounds(data.shelters.map(s => [s.lat, s.lon] as [number, number]));
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
-    }
-
-    // 1. Draw connection polylines from critical tracts to inland shelters
-    data.tracts.forEach(tract => {
-      // Find nearest shelter
-      let nearestShelter = data.shelters[0];
-      let minDistance = 999;
-      data.shelters.forEach(s => {
-        const d = Math.hypot(s.lat - tract.lat, s.lon - tract.lon);
-        if (d < minDistance) {
-          minDistance = d;
-          nearestShelter = s;
-        }
-      });
-
-      if (nearestShelter && tract.riskTier === 'CRITICAL') {
-        const latlngs: [number, number][] = [
-          [tract.lat, tract.lon],
-          [nearestShelter.lat, nearestShelter.lon]
-        ];
-        const line = L.polyline(latlngs, {
-          color: '#f97316',
-          weight: 2,
-          opacity: 0.7,
-          dashArray: '6, 8'
-        });
-        line.bindTooltip(`Transit Gap: ${tract.distanceToShelterKm} km straight-line`, { sticky: true });
-        markersGroup.addLayer(line);
+      if (tract.riskTier !== 'MODERATE' && data.shelters.length) {
+        const nearest = data.shelters.reduce((best, shelter) => Math.hypot(shelter.lat - tract.lat, shelter.lon - tract.lon) < Math.hypot(best.lat - tract.lat, best.lon - tract.lon) ? shelter : best, data.shelters[0]);
+        const line = new googleMaps.Polyline({ map, path: [position, { lat: nearest.lat, lng: nearest.lon }], strokeColor: '#fb923c', strokeOpacity: 0.7, strokeWeight: 2, icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 }, offset: '0', repeat: '12px' }] });
+        overlaysRef.current.push(line);
       }
     });
 
-    // 2. Plot Vulnerable Tracts (Circles)
-    data.tracts.forEach(tract => {
-      const isCritical = tract.riskTier === 'CRITICAL';
-      const circle = L.circleMarker([tract.lat, tract.lon], {
-        radius: isCritical ? 14 : 10,
-        fillColor: isCritical ? '#dc2626' : '#ea580c',
-        color: '#ffffff',
-        weight: 2,
-        opacity: 0.9,
-        fillOpacity: 0.65
-      });
-
-      const popupContent = `
-        <div style="font-family: system-ui, sans-serif; font-size: 12px; line-height: 1.4; color: #1e293b;">
-          <div style="font-weight: 700; color: #b91c1c; font-size: 13px;">${tract.name}</div>
-          <div style="margin-top: 4px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;">
-            <strong>Risk Classification:</strong> <span style="background: #fee2e2; color: #991b1b; padding: 1px 4px; border-radius: 4px; font-weight: 600;">${tract.riskTier}</span>
-          </div>
-          <div style="margin-top: 4px;">
-            <div>• <strong>No-Vehicle Households:</strong> ${tract.householdsNoVehicle} (${tract.pctNoVehicle}%)</div>
-            <div>• <strong>Age 65+ Population:</strong> ${tract.pctAge65Plus}%</div>
-            <div>• <strong>Mobile Homes:</strong> ${tract.mobileHomes}</div>
-            <div>• <strong>Distance to Nearest Shelter:</strong> ${tract.distanceToShelterKm} km</div>
-          </div>
-        </div>
-      `;
-
-      circle.bindPopup(popupContent);
-      circle.on('click', () => onSelectTract && onSelectTract(tract));
-      markersGroup.addLayer(circle);
+    data.shelters.forEach((shelter) => {
+      const position = { lat: shelter.lat, lng: shelter.lon };
+      const color = shelter.inSurgeZone ? '#ef4444' : shelter.wheelchairStatus === 'UNRECORDED' ? '#f59e0b' : '#10b981';
+      const marker = new googleMaps.Marker({ map, position, title: shelter.name, icon: { path: googleMaps.SymbolPath.CIRCLE, scale: shelter.isMedical ? 10 : 8, fillColor: color, fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2 } });
+      marker.addListener('click', () => { onSelectShelter?.(shelter); openInfo(position, `<div style="font:13px system-ui;min-width:240px"><strong>${shelter.name}</strong><div style="color:#64748b;margin-top:2px">${shelter.address}</div><div style="margin-top:6px;color:${color};font-weight:700">${shelter.inSurgeZone ? 'SURGE ZONE HAZARD' : shelter.wheelchairStatus === 'UNRECORDED' ? 'Accessibility needs validation' : 'Verified candidate shelter'}</div><div style="margin-top:6px">Capacity: ${shelter.capacity.toLocaleString()}<br/>${shelter.isMedical ? 'Medical-needs shelter' : 'General population'} · Generator: ${shelter.generatorOnsite ? 'yes' : 'no'}</div><a href="${shelter.mapsPlaceUri}" target="_blank" style="display:inline-block;margin-top:8px">Open in Google Maps →</a></div>`); });
+      overlaysRef.current.push(marker); bounds.extend(position);
     });
-
-    // 3. Plot Candidate Shelters
-    data.shelters.forEach(shelter => {
-      let pinColor = '#10b981'; // Green = Safe / verified
-      let statusBadge = '🟢 Verified Safe & Open';
-
-      if (shelter.inSurgeZone) {
-        pinColor = '#ef4444'; // Red = Surge danger
-        statusBadge = '🔴 SURGE ZONE HAZARD';
-      } else if (shelter.wheelchairStatus === 'UNRECORDED') {
-        pinColor = '#f59e0b'; // Amber = Unrecorded
-        statusBadge = '🟡 Unrecorded Accessibility';
-      }
-
-      // Custom SVG Marker Icon
-      const svgIcon = L.divIcon({
-        className: 'custom-shelter-pin',
-        html: `
-          <div style="
-            background-color: ${pinColor};
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 12px;
-            font-weight: bold;
-          ">
-            ${shelter.inSurgeZone ? '!' : (shelter.isMedical ? '+' : 'S')}
-          </div>
-        `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-        popupAnchor: [0, -14]
-      });
-
-      const marker = L.marker([shelter.lat, shelter.lon], { icon: svgIcon });
-
-      const popupHtml = `
-        <div style="font-family: system-ui, sans-serif; font-size: 12px; line-height: 1.4; color: #1e293b; min-width: 240px;">
-          <div style="font-weight: 700; font-size: 13px; color: #0f172a;">${shelter.name}</div>
-          <div style="color: #64748b; font-size: 11px;">${shelter.address}</div>
-          
-          <div style="margin-top: 6px; padding: 4px 6px; border-radius: 4px; font-weight: 600; font-size: 11px; background: ${shelter.inSurgeZone ? '#fee2e2; color: #991b1b;' : '#f1f5f9; color: #334155;'}">
-            ${statusBadge}
-          </div>
-
-          <div style="margin-top: 6px; border-top: 1px solid #e2e8f0; padding-top: 4px;">
-            <div>• <strong>Evacuation Capacity:</strong> ${shelter.capacity.toLocaleString()}</div>
-            <div>• <strong>Wheelchair Access:</strong> 
-              ${shelter.wheelchairStatus === 'YES' ? '<span style="color:#15803d; font-weight:bold;">Recorded YES</span>' : 
-                (shelter.wheelchairStatus === 'UNRECORDED' ? '<span style="color:#b45309; font-weight:bold;">UNRECORDED (Unassessed)</span>' : '<span style="color:#b91c1c; font-weight:bold;">Recorded NO</span>')}
-            </div>
-            <div>• <strong>Backup Generator:</strong> ${shelter.generatorOnsite ? 'Yes (Equipped)' : 'No'}</div>
-            <div>• <strong>Medical Designation:</strong> ${shelter.isMedical ? 'Medical-Needs Shelter' : 'General Population'}</div>
-          </div>
-
-          <div style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed #cbd5e1; font-size: 10px; color: #475569;">
-            <div>Verified live via <strong translate="no" style="color: #1e293b;">Google Maps</strong></div>
-            <a href="${shelter.mapsPlaceUri}" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: 600; display: inline-block; margin-top: 2px;">
-              View on Google Maps →
-            </a>
-          </div>
-        </div>
-      `;
-
-      marker.bindPopup(popupHtml);
-      marker.on('click', () => onSelectShelter && onSelectShelter(shelter));
-      markersGroup.addLayer(marker);
-    });
-
-  }, [data, selectedShelterId, onSelectShelter, onSelectTract]);
+    if (!bounds.isEmpty()) map.fitBounds(bounds, { top: 90, right: 40, bottom: 40, left: 40 });
+    return () => infoWindow.close();
+  }, [apiKey, data, mapsReady, onSelectShelter, onSelectTract]);
 
   return (
     <div className="relative w-full h-full flex flex-col bg-slate-950">
@@ -199,12 +100,16 @@ export const MapView: React.FC<MapViewProps> = ({
         </h3>
         <div className="space-y-1.5">
           <div className="flex items-center space-x-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-red-600 border border-white inline-block"></span>
-            <span>Critical Vulnerability Tract (High No-Car & Senior)</span>
+            <span className="w-3.5 h-3.5 rounded-full bg-red-600/80 border border-red-200 inline-block"></span>
+            <span>Critical tract · gold mobility score ≥ 38</span>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-orange-500 border border-white inline-block"></span>
-            <span>High Vulnerability Tract</span>
+            <span className="w-3.5 h-3.5 rounded-full bg-orange-500/80 border border-orange-200 inline-block"></span>
+            <span>High tract · gold score ≥ 30</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="w-3.5 h-3.5 rounded-full bg-amber-400/80 border border-amber-200 inline-block"></span>
+            <span>Moderate tract · outreach context</span>
           </div>
           <div className="flex items-center space-x-2">
             <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 border border-white inline-block"></span>
@@ -214,10 +119,6 @@ export const MapView: React.FC<MapViewProps> = ({
             <span className="w-3.5 h-3.5 rounded-full bg-amber-500 border border-white inline-block"></span>
             <span>Unrecorded Wheelchair Status (Audit Target)</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-red-600 border border-white inline-block"></span>
-            <span>In SLOSH Surge Zone (Unsafe for Landfall)</span>
-          </div>
           <div className="flex items-center space-x-2 pt-1 border-t border-slate-800 text-orange-400 font-mono text-[10px]">
             <span>- - - Transit Gap Vector (Distance to Inland Shelter)</span>
           </div>
@@ -226,6 +127,7 @@ export const MapView: React.FC<MapViewProps> = ({
 
       {/* Map Canvas */}
       <div ref={mapContainerRef} className="w-full h-full z-0" />
+      {mapError && <div className="absolute inset-0 z-[900] flex items-center justify-center bg-slate-950/92 p-6 text-center"><div className="max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"><div className="text-sm font-bold text-white">Google Maps layer unavailable</div><div className="mt-2 text-xs leading-5 text-slate-400">{mapError}</div><div className="mt-4 text-[10px] uppercase tracking-wider text-slate-500">The gold risk layer is ready; configure the Maps JavaScript API key to render it.</div></div></div>}
     </div>
   );
 };
