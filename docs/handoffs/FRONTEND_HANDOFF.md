@@ -12,8 +12,8 @@ Connect the coordinator web UI to the deployed Lee County ADK agent through a se
 | County FIPS | `12071` |
 | Project | `qwiklabs-gcp-04-9fa9c7b57012` |
 | Region | `us-east1` |
-| Agent Runtime resource | `projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104` |
-| Model | `gemini-3.6-flash` |
+| Agent Runtime resource | `projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272` |
+| Model | `gemini-2.5-flash` with Maps/Search grounding sub-agents |
 
 The older Miami-Dade-oriented frontend deployment is not the canonical agent for this PR. Use the Lee County runtime above.
 
@@ -27,7 +27,7 @@ from vertexai import agent_engines
 
 vertexai.init(project="qwiklabs-gcp-04-9fa9c7b57012", location="us-east1")
 engine = agent_engines.get(
-    "projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104"
+    "projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272"
 )
 session = engine.create_session(user_id="coordinator_web")
 session_id = session.get("id") if isinstance(session, dict) else session.id
@@ -39,8 +39,8 @@ events = engine.stream_query(
 REST endpoints:
 
 ```text
-https://us-east1-aiplatform.googleapis.com/v1/projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104:query
-https://us-east1-aiplatform.googleapis.com/v1/projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104:streamQuery
+https://us-east1-aiplatform.googleapis.com/v1/projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272:query
+https://us-east1-aiplatform.googleapis.com/v1/projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272:streamQuery
 ```
 
 Expose a small app API such as `POST /api/copilot/chat`; the browser sends the user message plus selected `geo_id`, and the backend forwards the request to Agent Runtime.
@@ -70,6 +70,21 @@ Shelter option fields: `tract_geo_id`, `shelter_id`, `shelter_name`, `address_1`
 Access-state fields: `geo_id`, `access_state`, `total_reachable_shelters`, `count_yes`, `count_no`, `count_unrecorded`, `action_recommendation`.
 
 Do not reintroduce `frontend/src/mock/readinessData.ts` or query raw tables from the UI. The gold views are the normalized, county-scoped agent contract.
+
+## Outreach discovery use case
+
+The frontend can ask the agent: “Find trusted outreach partners for the top five Lee County tracts with State D access.” The agent first calls `find_outreach_candidates`, which reads the curated `lee_outreach_organizations` gold table, then uses Google Search grounding to discover and verify nearby organizations.
+
+Use these UI fields for an outreach lead:
+
+```text
+org_id, name, organization_type, capability_tags, service_area,
+public_phone, contact_url, source_url, source_type, verification_status,
+target_geo_id, stranded_score, access_state, proximity_status,
+suggested_search
+```
+
+Label each result as `curated_seed` or `search_discovered`. Show evidence URLs, verification time, and confidence. A lead is not proof that the organization is activated, staffed, willing to deploy, or a shelter/medical provider. The agent may draft an outreach brief, but the UI must not send messages automatically.
 
 ## Map behavior
 

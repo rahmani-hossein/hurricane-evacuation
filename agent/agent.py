@@ -16,7 +16,9 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 from google.adk import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from google.adk.tools import AgentTool
 from google.adk.tools import google_maps_grounding
+from google.adk.tools import google_search
 from google.genai import types
 
 from agent.prompts import SYSTEM_INSTRUCTION
@@ -26,9 +28,35 @@ from agent.tools import (
     get_tract_access_state,
     rank_stranded_tracts,
     run_equity_audit,
+    find_outreach_candidates,
 )
 
-MODEL_NAME = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+MODEL_NAME = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+
+
+def _grounding_agents() -> list[AgentTool]:
+    """Isolate built-in grounding for Gemini 2.5's tool-combination limits."""
+    maps_agent = Agent(
+        name="maps_grounding_agent",
+        model=MODEL_NAME,
+        instruction=(
+            "Verify named shelters and routes with Google Maps Grounding. Return only "
+            "the requested place facts, route evidence, and Google Maps attribution."
+        ),
+        tools=[google_maps_grounding],
+    )
+    search_agent = Agent(
+        name="outreach_search_agent",
+        model=MODEL_NAME,
+        instruction=(
+            "Find and verify current community organizations and volunteer partners "
+            "near the requested Lee County area using Google Search grounding. Treat "
+            "results as leads, include URLs and verification dates, and never claim "
+            "that a group has agreed to participate."
+        ),
+        tools=[google_search],
+    )
+    return [AgentTool(agent=maps_agent), AgentTool(agent=search_agent)]
 
 
 def create_evacuation_agent() -> Agent:
@@ -42,7 +70,8 @@ def create_evacuation_agent() -> Agent:
             get_tract_access_state,
             get_county_power_dependence,
             run_equity_audit,
-            google_maps_grounding,
+            find_outreach_candidates,
+            *_grounding_agents(),
         ],
     )
 

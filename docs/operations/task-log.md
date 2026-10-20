@@ -52,3 +52,7 @@ This file is append-only. Add new entries at the bottom; do not rewrite prior en
 - Migrated `agent/tools.py` from raw `evacuation_readiness` views to `evacuation_readiness_gold` Lee views. Tool suite result: 5/5 passed.
 - Deployed canonical Lee County Agent Runtime resource: `projects/851021919219/locations/us-east1/reasoningEngines/7330860737289519104`.
 - Remote Agent Runtime smoke tests passed for top stranded tracts/access states and named-shelter Google Maps verification.
+- Added the Lee County outreach seed table `evacuation_readiness_gold.lee_outreach_organizations` with official Emergency Management, CERT, ARES/RACES, and United Way coordination leads.
+- Added `find_outreach_candidates` and a dedicated Google Search-grounded `agent.outreach` agent for finding and verifying peer-program outreach partners near high-risk tracts.
+- Rebuilt BigQuery successfully and verified six curated outreach seed records; updated the frontend handoff with outreach lead fields and safety semantics.
+- 2026-10-20 — Redeployed the merged Lee County agent as `projects/851021919219/locations/us-east1/reasoningEngines/5276937832231862272`. Fixed Agent Engine packaging to archive the `agent/` package at an importable relative path, and split Maps/Search grounding into ADK sub-agents because this project only exposes Gemini 2.5 models. Remote smoke test passed with a Lee County gold-contract question.

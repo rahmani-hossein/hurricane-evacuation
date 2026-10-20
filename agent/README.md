@@ -1,4 +1,4 @@
-# Miami-Dade Hurricane Readiness Agent
+# Lee County Hurricane Readiness Agent
 
 This folder contains the executable ADK package. Project documentation lives under [`../docs/`](../docs/),
 so handoffs and decision artifacts do not accumulate in the repository root.
@@ -7,8 +7,14 @@ so handoffs and decision artifacts do not accumulate in the repository root.
 - Data contract: [`../docs/handoffs/miami-dade-agent-handoff.md`](../docs/handoffs/miami-dade-agent-handoff.md)
 - Validation results: [`../docs/validation/miami-dade-shelter-validation.md`](../docs/validation/miami-dade-shelter-validation.md)
 
-The agent is a working Miami-Dade implementation, not a placeholder. It combines a custom BigQuery
-function tool with Google Maps grounding and preserves the uncertainty semantics of the gold tables.
+The agent is a working Lee County implementation, not a placeholder. It combines custom BigQuery
+function tools with Google Maps grounding, Google Search grounding for outreach discovery, and
+preserves the uncertainty semantics of the gold tables.
+
+The outreach use case is exposed through `find_outreach_candidates` and the dedicated
+`agent.outreach` agent. It starts with the curated `lee_outreach_organizations` gold seed and then
+uses grounded search to find and verify nearby community partners. Search results are leads, not
+proof of activation or willingness to deploy.
 
 We built the on-ramp: every registered shelter in your state with capacity and accessibility, the
 census tracts around them with disability, vehicle access and age, the counties where people depend
@@ -45,8 +51,9 @@ only when they are all search tools."
 tool in one ADK agent, run end to end, both firing in a single turn. The same request on
 `gemini-2.5-flash` still returns the 400.
 
-**Use a 3.x model and keep one agent.** If you pin an older one, you need two, and it is a fine
-architecture either way:
+**This deployment uses Gemini 2.5 because that is what the hackathon project exposes.** The root
+agent keeps the BigQuery/function tools, while Maps and Search are isolated in ADK sub-agents and
+wrapped with `AgentTool`:
 
 - a **maps agent** holding `google_maps_grounding` and nothing else
 - your **root agent** holding your function tools, an MCP server, and the maps agent wrapped in
