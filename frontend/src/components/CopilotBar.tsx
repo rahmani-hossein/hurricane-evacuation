@@ -12,6 +12,7 @@ export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery, selectedCoun
 
   const quickPrompts = [
     "📋 August Readiness Brief",
+    "⚖️ Equity Audit",
     "What are the top 3 stranded tracts in Lee County?",
     "Candidate shelters within 2 km of Tract 12071020801",
     "How many residents rely on medical electricity (emPOWER)?",
@@ -25,6 +26,16 @@ export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery, selectedCoun
     setInput('');
   };
 
+  const handlePromptClick = (q: string) => {
+    if (q.includes('Readiness Brief')) {
+      onRunQuery("Generate the August Readiness Brief for Lee County");
+    } else if (q.includes('Equity Audit')) {
+      onRunQuery("Run the equity audit on Lee County prioritized tracts and explain whether the plan landed where people cannot leave or where forms were filled in.");
+    } else {
+      onRunQuery(q);
+    }
+  };
+
   return (
     <div className="bg-slate-900 border-t border-slate-800 p-3 shrink-0">
       {/* Quick Prompt Pills */}
@@ -36,10 +47,12 @@ export const CopilotBar: React.FC<CopilotBarProps> = ({ onRunQuery, selectedCoun
         {quickPrompts.map((q, idx) => (
           <button
             key={idx}
-            onClick={() => onRunQuery(q.includes('Readiness Brief') ? "Generate the August Readiness Brief for Lee County" : q)}
+            onClick={() => handlePromptClick(q)}
             className={`border rounded-full px-3 py-1 whitespace-nowrap text-xs transition-colors shrink-0 ${
               q.includes('Readiness Brief')
                 ? 'bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 hover:text-white border-blue-500/60 font-semibold'
+                : q.includes('Equity Audit')
+                ? 'bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 hover:text-white border-purple-500/60 font-semibold'
                 : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
             }`}
           >
