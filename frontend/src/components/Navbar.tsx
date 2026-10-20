@@ -4,9 +4,11 @@ import { ShieldAlert, Compass, MapPin, Database } from 'lucide-react';
 interface NavbarProps {
   selectedCounty: string;
   onSelectCounty: (county: string) => void;
+  dataSourceLabel?: string;
+  isLive?: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ selectedCounty, onSelectCounty }) => {
+export const Navbar: React.FC<NavbarProps> = ({ selectedCounty, onSelectCounty, dataSourceLabel, isLive }) => {
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-white px-6 py-3 flex flex-wrap items-center justify-between gap-4 select-none shrink-0">
       <div className="flex items-center space-x-3">
@@ -19,6 +21,14 @@ export const Navbar: React.FC<NavbarProps> = ({ selectedCounty, onSelectCounty }
             <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-0.5 rounded font-mono border border-blue-500/30">
               August Pre-Season
             </span>
+            {dataSourceLabel && (
+              <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full font-mono border ${
+                isLive ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isLive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                {dataSourceLabel}
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-400">
             County Emergency Management Preparedness Copilot • Planning Horizon: 3 Weeks Pre-Landfall

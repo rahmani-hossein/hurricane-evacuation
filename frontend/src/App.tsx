@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { DataIntegrityAlert } from './components/DataIntegrityAlert';
 import { StatCards } from './components/StatCards';
 import { MapView } from './components/MapView';
 import { ReadinessBrief } from './components/ReadinessBrief';
 import { CopilotBar } from './components/CopilotBar';
-import { MOCK_MIAMI_DADE_DATA, MOCK_LEE_COUNTY_DATA, ShelterCandidate, VulnerableTract } from './mock/readinessData';
+import { MOCK_MIAMI_DADE_DATA, MOCK_LEE_COUNTY_DATA, CountyReadinessData, ShelterCandidate, VulnerableTract } from './mock/readinessData';
 import { CheckCircle2, X } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [selectedCounty, setSelectedCounty] = useState('Miami-Dade County');
-  const [data, setData] = useState(MOCK_MIAMI_DADE_DATA);
+  const [data, setData] = useState<CountyReadinessData>(MOCK_MIAMI_DADE_DATA);
+  const [liveMiamiDadeData, setLiveMiamiDadeData] = useState<CountyReadinessData | null>(null);
+  const [dataSourceLabel, setDataSourceLabel] = useState<string>('Connecting to BigQuery Gold API...');
+  const [isLive, setIsLive] = useState<boolean>(false);
   const [selectedShelter, setSelectedShelter] = useState<ShelterCandidate | undefined>(undefined);
   const [, setSelectedTract] = useState<VulnerableTract | undefined>(undefined);
   const [isQueryLoading, setIsQueryLoading] = useState(false);
@@ -22,12 +25,37 @@ export const App: React.FC = () => {
     isAi?: boolean;
   } | null>(null);
 
+  useEffect(() => {
+    async function loadLiveCountyData() {
+      try {
+        const res = await fetch('/api/miami-dade/readiness');
+        if (res.ok) {
+          const goldData = await res.json();
+          setLiveMiamiDadeData(goldData);
+          setData(goldData);
+          setIsLive(true);
+          setDataSourceLabel('Live BigQuery Gold API');
+        } else {
+          setDataSourceLabel('Baseline Cache Active');
+        }
+      } catch (err) {
+        console.warn('Could not reach live readiness API, using baseline:', err);
+        setDataSourceLabel('Baseline Cache Active');
+      }
+    }
+    loadLiveCountyData();
+  }, []);
+
   const handleSelectCounty = (county: string) => {
     setSelectedCounty(county);
     if (county.includes('Lee')) {
       setData(MOCK_LEE_COUNTY_DATA);
+      setIsLive(false);
+      setDataSourceLabel('Offline Demo Preview (Lee County)');
     } else {
-      setData(MOCK_MIAMI_DADE_DATA);
+      setData(liveMiamiDadeData || MOCK_MIAMI_DADE_DATA);
+      setIsLive(liveMiamiDadeData !== null);
+      setDataSourceLabel(liveMiamiDadeData ? 'Live BigQuery Gold API' : 'Baseline Cache Active');
     }
   };
 
@@ -88,7 +116,12 @@ export const App: React.FC = () => {
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-950 font-sans">
       {/* 1. Header Navigation */}
-      <Navbar selectedCounty={selectedCounty} onSelectCounty={handleSelectCounty} />
+      <Navbar
+        selectedCounty={selectedCounty}
+        onSelectCounty={handleSelectCounty}
+        dataSourceLabel={dataSourceLabel}
+        isLive={isLive}
+      />
 
       {/* 2. Critical Data Integrity Notice ("Unrecorded != No") */}
       <DataIntegrityAlert unrecordedPct={data.summary.unrecordedAccessibilityPct} />
