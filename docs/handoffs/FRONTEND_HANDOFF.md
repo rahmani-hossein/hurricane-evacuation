@@ -71,6 +71,21 @@ Access-state fields: `geo_id`, `access_state`, `total_reachable_shelters`, `coun
 
 Do not reintroduce `frontend/src/mock/readinessData.ts` or query raw tables from the UI. The gold views are the normalized, county-scoped agent contract.
 
+## Outreach discovery use case
+
+The frontend can ask the agent: “Find trusted outreach partners for the top five Lee County tracts with State D access.” The agent first calls `find_outreach_candidates`, which reads the curated `lee_outreach_organizations` gold table, then uses Google Search grounding to discover and verify nearby organizations.
+
+Use these UI fields for an outreach lead:
+
+```text
+org_id, name, organization_type, capability_tags, service_area,
+public_phone, contact_url, source_url, source_type, verification_status,
+target_geo_id, stranded_score, access_state, proximity_status,
+suggested_search
+```
+
+Label each result as `curated_seed` or `search_discovered`. Show evidence URLs, verification time, and confidence. A lead is not proof that the organization is activated, staffed, willing to deploy, or a shelter/medical provider. The agent may draft an outreach brief, but the UI must not send messages automatically.
+
 ## Map behavior
 
 - Center on Lee County and draw tract circles from `lee_tract_risk`.

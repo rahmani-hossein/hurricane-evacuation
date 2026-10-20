@@ -1,7 +1,7 @@
 """Interactive Florida Hurricane Evacuation Readiness ADK agent.
 
 Supports multi-county operations for both Miami-Dade County (12086) and Lee County (12071)
-using Google ADK, BigQuery analytical views, and Google Maps Grounding on Gemini 3.x.
+using Google ADK, BigQuery analytical views, Google Maps Grounding, and Google Search on Gemini 3.x.
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 
 from google.cloud import bigquery
 from google.adk.agents import Agent
-from google.adk.tools import google_maps_grounding
+from google.adk.tools import google_maps_grounding, google_search
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
@@ -39,6 +39,7 @@ from agent.tools import (
     get_tract_access_state,
     get_county_power_dependence,
     run_equity_audit,
+    find_outreach_candidates,
 )
 
 
@@ -109,7 +110,9 @@ ALL_TOOLS = [
     get_tract_access_state,
     get_county_power_dependence,
     run_equity_audit,
+    find_outreach_candidates,
     google_maps_grounding,
+    google_search,
 ]
 
 COMBINED_INSTRUCTION = f"""
